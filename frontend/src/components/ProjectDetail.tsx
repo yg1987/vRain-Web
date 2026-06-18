@@ -7,111 +7,78 @@
  *   预览 → Canvas 实时预览
  *   导出 → PDF 导出
  *
- * 左侧：纯项目信息展示（项目名、文件数、字体列表）
- *
  * 数据流：
  *   ProjectDetail (state) ← 配置编辑 → 实时预览 → PDF导出
- *                       ← 文本编辑 → (联动)
+ *   state 变化自动持久化到后端 SQLite
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useParams } from "react-router-dom";
 import ProjectSidebar from "./ProjectSidebar";
 import ConfigEditor from "./ConfigEditor";
+import DecorationPanel from "./DecorationPanel";
+import PunctuationPanel from "./PunctuationPanel";
 import TextEditor from "./TextEditor";
 import PreviewViewport from "./PreviewViewport";
 import PdfExportPanel from "./PdfExportPanel";
 import FontSelector from "./FontSelector";
 import ImportExportPanel from "./ImportExportPanel";
 import { usePreview } from "../hooks/usePreview";
+import { api } from "../lib/api";
+import { DEFAULT_BOOK_CONFIG, DEFAULT_CANVAS_CONFIG, DEFAULT_TEXT_LINES } from "../hooks/useProjectStore";
 
 import type { BookConfig, CanvasConfig } from "../types/layout";
 
-const DEFAULT_BOOK_CONFIG: BookConfig = {
-  name: "虞初新志",
-  title: "虞初新志",
-  author: "清张潮辑",
-  canvasId: "24_black_blank",
-  rowNum: 30,
-  rowDeltaY: 8,
-  fonts: [
-    { name: "启基Combo", filename: "qiji-combo.ttf", textPointSize: 60, commentPointSize: 45, rotate: 0 },
-    { name: "汉明A", filename: "HanaMinA.ttf", textPointSize: 50, commentPointSize: 40, rotate: 0 },
-    { name: "汉明B", filename: "HanaMinB.ttf", textPointSize: 50, commentPointSize: 40, rotate: 0 },
-  ],
-  textFontFamily: "启基Combo",
-  commentFontFamily: "启基Combo",
-  textFontColor: "black",
-  commentFontColor: "black",
-  coverTitleFontSize: 120,
-  coverTitleY: 200,
-  coverAuthorFontSize: 60,
-  coverAuthorY: 600,
-  coverFontColor: "black",
-  titleFontSize: 65,
-  titleColor: "black",
-  titleY: 1250,
-  titleYDis: 1.25,
-  titlePostfix: "卷X",
-  titleDirectory: false,
-  pagerFontSize: 30,
-  pagerColor: "black",
-  pagerY: 540,
-  punctuationReplacements: [],
-  punctuationDeletions: "",
-  noPunctuationMode: false,
-  onlyPeriodMode: false,
-  noPositionPunctuation: "",
-  noPositionPunctuationSize: 1.1,
-  noPositionPunctuationOffset: { x: 0.45, y: 0.5 },
-  rotatedPunctuation: "",
-  rotatedPunctuationSize: 0.8,
-  rotatedPunctuationOffset: { x: 0.35, y: 0.65 },
-  commentNoPositionPunctuation: "",
-  commentRotatedPunctuation: "",
-  decorativeMarks: {
-    bookLine: { enabled: false, width: 2, color: "black" },
-    rectFrame: { enabled: false, borderType: 0, borderColor: "black", fillColor: "black" },
-    circleFrame: { enabled: false, borderType: 0, borderColor: "black", fillColor: "white" },
-    textZoom: { enabled: false, zoomFactor: 1.1 },
-    circleNote: { enabled: false, offset: { x: 0.25, y: 0.3 }, radius: 0.15, width: 6, color: "#874434" },
-    pointNote: { enabled: false, offset: { x: -0.25, y: 0 }, size: 1.2, color: "#874434" },
-    lineNote: { enabled: false, offset: { x: 0.4, y: -0.25 }, width: 7, color: "#874434" },
-  },
-  fontMetricAdjust: false,
-  fallbackBold: false,
-  fallbackBoldStrokeWidth: 1.2,
-  simplifiedToTraditional: false,
-};
-
-const DEFAULT_CANVAS_CONFIG: CanvasConfig = {
-  width: 2480,
-  height: 1860,
-  color: "white",
-  margins: { top: 200, bottom: 50, left: 50, right: 50 },
-  leafCol: 24,
-  leafCenterWidth: 120,
-  multiRows: { enabled: false, num: 1, lineWidth: 0, separatorColor: "#f5f5f5" },
-  outerBorder: { width: 10, color: "black", hMargin: 5, vMargin: 5 },
-  innerBorder: { width: 1, color: "black" },
-  fishTail: {
-    top: { y: 450, color: "black", rectHeight: 50, triHeight: 30, lineWidth: 15 },
-    bottom: { y: 1550, color: "black", rectHeight: 50, triHeight: 30, lineWidth: 15, direction: 1 },
-    style: "triangle",
-    decorativeLines: { color: "black", width: 1, margin: 5 },
-  },
-  logoY: 1680,
-  logoColor: "white",
-  logoFont: "qiji-combo.ttf",
-  logoFontSize: 40,
-};
-
 export default function ProjectDetail() {
+  const { id: projectId } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<"config" | "text" | "preview" | "export">("config");
   const [bookConfig, setBookConfig] = useState<BookConfig>(DEFAULT_BOOK_CONFIG);
   const [canvasConfig, setCanvasConfig] = useState<CanvasConfig>(DEFAULT_CANVAS_CONFIG);
-  const [textLines, setTextLines] = useState<string[][]>([
-    ["第一章 测试章节", "", "这是一段测试文本，用于预览竖排效果。"],
-  ]);
+  const [textLines, setTextLines] = useState<string[][]>(DEFAULT_TEXT_LINES.map((arr) => [...arr]));
   const [selectedTextFile, setSelectedTextFile] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadedRef = useRef(false);
+
+  // ========== 加载项目数据 ==========
+  useEffect(() => {
+    if (!projectId || loadedRef.current) return;
+
+    const loadProject = async () => {
+      try {
+        setLoading(true);
+        const project = await api.getProject(projectId);
+        setBookConfig(project.bookConfig as BookConfig);
+        setCanvasConfig(project.canvasConfig as CanvasConfig);
+        setTextLines(project.textLines.map((arr) => [...arr]));
+      } catch (err) {
+        console.error("加载项目失败:", err);
+        // 项目不存在时使用默认值
+      } finally {
+        setLoading(false);
+        loadedRef.current = true;
+      }
+    };
+
+    loadProject();
+  }, [projectId]);
+
+  // ========== 自动持久化 ==========
+  // 配置/文本变化后防抖保存到后端 SQLite
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const triggerSave = useCallback(() => {
+    if (!projectId) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      api.updateProject(projectId, { bookConfig, canvasConfig, textLines }).catch((err) => {
+        console.error("保存项目失败:", err);
+      });
+    }, 500);
+  }, [projectId, bookConfig, canvasConfig, textLines]);
+
+  useEffect(() => {
+    if (!loadedRef.current) return; // 首次加载不触发保存
+    triggerSave();
+  }, [bookConfig, canvasConfig, textLines, triggerSave]);
 
   // 预览 Hook — 配置+文本变更自动重建预览
   const preview = usePreview({
@@ -152,17 +119,14 @@ export default function ProjectDetail() {
   }, []);
 
   // ========== 预览交互回调 ==========
-  // 翻页
   const onPageChange = useCallback((page: number) => {
     preview.goToPage(page);
   }, [preview]);
 
-  // 缩放
   const onZoomChange = useCallback((zoom: number) => {
     preview.setZoom(zoom);
   }, [preview]);
 
-  // 封面切换
   const onToggleCover = useCallback(() => {
     preview.toggleCover();
   }, [preview]);
@@ -177,6 +141,14 @@ export default function ProjectDetail() {
     },
     [],
   );
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-ink/50">加载中...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen">
@@ -223,6 +195,14 @@ export default function ProjectDetail() {
                 bookConfig={bookConfig}
                 canvasConfig={canvasConfig}
                 onChange={onConfigChange}
+              />
+              <DecorationPanel
+                bookConfig={bookConfig}
+                onChange={(book) => setBookConfig(book)}
+              />
+              <PunctuationPanel
+                bookConfig={bookConfig}
+                onChange={(book) => setBookConfig(book)}
               />
               <FontSelector
                 fonts={bookConfig.fonts}
