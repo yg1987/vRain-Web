@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -10,10 +11,19 @@ const app = Fastify({ logger: true });
 
 // CORS — 允许前端访问
 await app.register(cors, { origin: true });
+// 文件上传 (字体)
+await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } }); // 50MB 上限
 
 // 静态资源 (前端构建产物)
+import staticPlugin from "@fastify/static";
 const distPath = path.join(__dirname, "../../frontend/dist");
-// await app.register(staticPlugin, { root: distPath });
+await app.register(staticPlugin, { root: distPath, prefix: "/" });
+
+// ============================================================================
+// 初始化数据库
+// ============================================================================
+import { initDb, closeDb } from "./services/project-store";
+initDb();
 
 // ============================================================================
 // 健康检查
@@ -23,26 +33,22 @@ app.get("/api/health", async () => {
 });
 
 // ============================================================================
-// 项目 CRUD (占位)
+// 项目路由
 // ============================================================================
-app.get("/api/projects", async () => {
-  return { projects: [] };
-});
-
-app.post("/api/projects", async (request, reply) => {
-  const { name } = request.body as { name: string };
-  void name;
-  return reply.code(201).send({ id: "placeholder-id" });
-});
+import { registerProjectRoutes } from "./routes/projects";
+await registerProjectRoutes(app);
 
 // ============================================================================
-// 字体上传 (占位)
+// 字体路由
 // ============================================================================
-app.post("/api/fonts/upload", async (request, reply) => {
-  void request;
-  void reply;
-  return { message: "Font upload endpoint — to be implemented" };
-});
+import { registerFontRoutes } from "./routes/fonts";
+await registerFontRoutes(app);
+
+// ============================================================================
+// 工具路由 (简繁转换等)
+// ============================================================================
+import { registerToolRoutes } from "./routes/tools";
+await registerToolRoutes(app);
 
 // ============================================================================
 // PDF 生成
@@ -96,11 +102,13 @@ app.post("/api/render/pdf", async (request, reply) => {
 // 优雅关闭
 // ============================================================================
 process.on("SIGTERM", async () => {
+  closeDb();
   await shutdownBrowser();
   process.exit(0);
 });
 
 process.on("SIGINT", async () => {
+  closeDb();
   await shutdownBrowser();
   process.exit(0);
 });
