@@ -2,7 +2,7 @@
 
 > Web 版 — 跨平台可视化古籍刻本排版工具
 
-> 基于 [shanleiguang/vRain](https://github.com/shanleiguang/vRain) 改造，完整保留原始提交历史以示尊重。原始项目为 Perl 命令行工具，本工程将其改造为 Web 应用。
+> 基于 [shanleiguang/vRain](https://github.com/shanleiguang/vRain) 改造，完整保留原始提交历史。原始项目为 Perl 命令行工具，本工程将其改造为 Web 应用。
 
 ![vRain](https://img.shields.io/badge/vRain-v0.1.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
