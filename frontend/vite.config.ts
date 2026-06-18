@@ -3,8 +3,10 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 
 // 读取端口配置 (支持环境变量覆盖)
+// VITE_BACKEND_PORT 由 start.mjs 和 npm dev 脚本传递
 const FRONTEND_PORT = parseInt(process.env.VITE_PORT || "3000", 10);
-const BACKEND_HOST = process.env.PORT ? `localhost:${process.env.PORT}` : "localhost:8080";
+const backendPort = process.env.VITE_BACKEND_PORT || process.env.PORT || "8080";
+const BACKEND_HOST = `localhost:${backendPort}`;
 
 export default defineConfig({
   plugins: [react()],

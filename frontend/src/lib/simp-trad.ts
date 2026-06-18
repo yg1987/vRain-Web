@@ -619,17 +619,53 @@ const SIMP_TO_TRAD: Record<string, string> = {
 
 /**
  * 简转繁 — 将一段文本中的简体字符转为繁体
- * 非汉字字符 (标点、数字、英文) 自动跳过
+ *
+ * 优先调用后端 opencc API 进行完整准确的转换，
+ * 后端不可用时回退到本地映射表。
+ *
+ * 非汉字字符 (标点、数字、英文) 自动跳过。
  */
-export async function simplifyToTraditional(text: string): Promise<string> {
-  if (!text) return text;
 
-  // 逐字符查找映射表
+/** 后端 API 基础路径 */
+const API_BASE = "/api";
+
+async function callSimp2tradApi(text: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${API_BASE}/tools/simp2trad`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.result ?? null;
+  } catch {
+    return null; // 网络错误时回退
+  }
+}
+
+/** 本地映射表转换（兜底） */
+function localSimplifyToTraditional(text: string): string {
+  if (!text) return text;
   let result = "";
   for (const ch of text) {
     result += SIMP_TO_TRAD[ch] ?? ch;
   }
   return result;
+}
+
+/**
+ * 简转繁 — 优先用后端 opencc API，失败时回退本地映射表
+ */
+export async function simplifyToTraditional(text: string): Promise<string> {
+  if (!text) return text;
+
+  // 1. 尝试后端 API
+  const apiResult = await callSimp2tradApi(text);
+  if (apiResult !== null) return apiResult;
+
+  // 2. 回退本地映射表
+  return localSimplifyToTraditional(text);
 }
 
 /**

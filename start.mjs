@@ -1,6 +1,9 @@
 #!/usr/bin/env node
-// vRain Web 一键启动脚本 (cross-platform)
-// 用法: node start.mjs [--port 3100] [--backend-port 8180]
+// vRain Web 启动脚本 (cross-platform)
+// 用法:
+//   node start.mjs                    # 生产模式 (构建后)
+//   node start.mjs --dev              # 开发模式 (后端带 watch)
+//   node start.mjs --port 3100 --backend-port 8180
 
 import { execSync, spawn } from "child_process";
 import { readFileSync } from "fs";
@@ -9,12 +12,13 @@ import { join } from "path";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
-// ── 端口配置 ─────────────────────────────────────────────
+// ── 配置 ────────────────────────────────────────────────
 const DEFAULT_VITE_PORT = 3000;
 const DEFAULT_BACKEND_PORT = 8080;
 
 let vitePort = DEFAULT_VITE_PORT;
 let backendPort = DEFAULT_BACKEND_PORT;
+let isDev = false;
 
 // 命令行覆盖
 const args = process.argv.slice(2);
@@ -25,6 +29,8 @@ for (let i = 0; i < args.length; i++) {
   } else if (args[i] === "--backend-port" && args[i + 1]) {
     backendPort = parseInt(args[i + 1], 10);
     i++;
+  } else if (args[i] === "--dev") {
+    isDev = true;
   }
 }
 
@@ -121,23 +127,28 @@ console.log("");
 // 直接 spawn 两个子进程，各自设置正确的端口环境变量
 // 绕过 npm / concurrently 的环境传递问题
 
+// 直接调用入口 JS，避开 npx/cmd.exe，实现干净 Ctrl+C
+const frontendBin = join(__dirname, "frontend", "node_modules", "vite", "bin", "vite.js");
+const backendBin = join(__dirname, "backend", "node_modules", "tsx", "dist", "cli.mjs");
+
 const frontendProc = spawn(
-  "npx",
-  ["vite", "--port", String(vitePort)],
+  "node",
+  [frontendBin, "--port", String(vitePort)],
   {
     stdio: "inherit",
     cwd: join(__dirname, "frontend"),
-    shell: true,
+    shell: false,  // 关键：不启动 cmd.exe，避免 Windows 批处理提示
+    env: { ...process.env, VITE_BACKEND_PORT: String(backendPort) },
   },
 );
 
 const backendProc = spawn(
-  "npx",
-  ["tsx", "watch", "backend/src/app.ts"],
+  "node",
+  [backendBin, ...(isDev ? ["watch", "backend/src/app.ts"] : ["backend/src/app.ts"])],
   {
     stdio: "inherit",
     cwd: __dirname,
-    shell: true,
+    shell: false,
     env: { ...process.env, PORT: String(backendPort) },
   },
 );

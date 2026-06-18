@@ -12,6 +12,8 @@ import { computeGridMetrics, generatePositionGrid } from "../lib/grid-calculator
 import { paginate } from "../lib/pagination-controller";
 import { preprocessLine, parseTextFile } from "../lib/text-parser";
 import { renderPages } from "../lib/preview-renderer";
+import { extractDecorationRanges, resolveDecorationRanges, assignDecorationsToPages } from "../lib/markup-parser";
+import type { DecorationRange } from "../lib/markup-parser";
 
 export interface PreviewState {
   pages: Page[];
@@ -60,6 +62,7 @@ export function usePreview(options: UsePreviewOptions) {
       // 2. 解析文本文件 → 预处理字符
       const allChars: string[] = [];
       const allCommentary: CommentaryEntry[] = [];
+      const allDecorationRanges: DecorationRange[] = [];
       const titles: string[] = [];
 
       for (let fi = 0; fi < textLines.length; fi++) {
@@ -69,12 +72,22 @@ export function usePreview(options: UsePreviewOptions) {
         // 收集标题
         if (parsed.paragraphs.length > 0) {
           const postfix = bookConfig.titlePostfix.replace("X", String(fi + 1));
-          titles.push(parsed.paragraphs[0].text + postfix);
+          // 标题取自第一段但需去除装饰标记符
+          const { cleanText } = extractDecorationRanges(parsed.paragraphs[0].text, bookConfig, 0);
+          titles.push(cleanText + postfix);
         }
 
-        // 拼接字符
+        // 拼接字符（同时剥离装饰标记符，记录装饰范围）
         for (const para of parsed.paragraphs) {
-          const chars = [...para.text];
+          // 提取装饰范围并得到净化后的文本
+          const { cleanText, ranges: newRanges } = extractDecorationRanges(
+            para.text,
+            bookConfig,
+            allChars.length, // 当前全局偏移
+          );
+          allDecorationRanges.push(...newRanges);
+
+          const chars = [...cleanText];
           allChars.push(...chars);
 
           // 批注
@@ -91,11 +104,13 @@ export function usePreview(options: UsePreviewOptions) {
         grid,
         allChars,
         allCommentary,
-        [], // 暂无装饰
+        [], // 装饰由 resolveDecorationRanges 后处理
+        positions.textPositions,
+        positions.commentPositions,
       );
 
       // 4. 构建 Page IR
-      const pages: Page[] = paginated.pages.map((pg, idx) => ({
+      let pages: Page[] = paginated.pages.map((pg, idx) => ({
         pageNumber: idx + 1,
         canvas: { ...canvasConfig },
         title: titles[idx] || bookConfig.title,
@@ -106,6 +121,12 @@ export function usePreview(options: UsePreviewOptions) {
         outlineTitle: titles[idx],
         outlinePage: idx + 2, // 封面 + 内容偏移
       }));
+
+      // 5. 装饰标记 → 像素坐标 → 分配到各页
+      if (allDecorationRanges.length > 0) {
+        const resolved = resolveDecorationRanges(pages, allDecorationRanges, bookConfig);
+        pages = assignDecorationsToPages(pages, resolved, allDecorationRanges);
+      }
 
       return pages;
     } catch (err) {

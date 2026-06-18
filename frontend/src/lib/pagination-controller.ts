@@ -10,7 +10,7 @@
  *   4. 页尾检查 (非占位标点保留在当前页)
  */
 
-import type { BookConfig, CanvasConfig, Page, Character, Commentary, ControlMark, Decoration, CommentaryEntry, ControlMarkWithIndex } from "../types/layout";
+import type { BookConfig, CanvasConfig, Page, Character, Commentary, ControlMark, Decoration, CommentaryEntry, ControlMarkWithIndex, Position } from "../types/layout";
 
 /**
  * 分页结果 — 将字符流分配到页面
@@ -36,22 +36,16 @@ export function paginate(
   grid: Grid,
   characters: string[],
   commentaryData: CommentaryEntry[],
-  decorations: Decoration[]
+  decorations: Decoration[],
+  textPositions: Position[] = [],
+  commentPositions: Position[] = []
 ): PaginatedResult {
   const { colNum, rowNum, pageCharsNum } = grid;
   const pages: Page[] = [];
   const controlMarks: ControlMarkWithIndex[] = [];
 
   // 初始化第一页
-  let currentPage: Page = {
-    pageNumber: 1,
-    canvas,
-    title: `${config.title} 卷1`,
-    characters: [],
-    commentaries: [],
-    decorations: [],
-    marks: [],
-  };
+  let currentPage: Page = createNewPage(1, canvas);
 
   let pcnt = 0; // 当前位置计数器
   let charIndex = 0; // 当前字符索引
@@ -68,7 +62,7 @@ export function paginate(
         case "pageBreak":
           // % 强制换页
           pages.push({ ...currentPage });
-          currentPage = createNewPage(pages.length + 1);
+          currentPage = createNewPage(pages.length + 1, canvas);
           pcnt = 0;
           charIndex++;
           continue;
@@ -116,9 +110,10 @@ export function paginate(
       if (isNonPositionPunctuation) {
         // 保留在当前页
         const charData = characters[charIndex];
+        const pos = textPositions[charIndex] || { x: 0, y: 0 };
         currentPage.characters.push({
-          x: 0,
-          y: 0,
+          x: pos.x,
+          y: pos.y,
           char: charData,
           fontFamily: config.textFontFamily || "serif",
           fontSize: config.fonts[0]?.textPointSize ?? 60,
@@ -133,7 +128,7 @@ export function paginate(
 
       // 推到新页
       pages.push({ ...currentPage });
-      currentPage = createNewPage(pages.length + 1);
+      currentPage = createNewPage(pages.length + 1, canvas);
       pcnt = 0;
     }
 
@@ -144,9 +139,10 @@ export function paginate(
     if (isCommentaryChar) {
       // 批注字符不占用正文位置 (pcnt 不变)
       if (commentForIndex.char) {
+        const cpos = commentPositions[charIndex] || textPositions[charIndex] || { x: 0, y: 0 };
         currentPage.commentaries.push({
-          x: 0,
-          y: 0,
+          x: cpos.x,
+          y: cpos.y,
           chars: [commentForIndex.char],
           fontSize: config.fonts[0]?.commentPointSize ?? 45,
           fontFamily: config.commentFontFamily || "serif",
@@ -157,10 +153,11 @@ export function paginate(
     } else {
       // 普通字符
       const fontSize = config.fonts[0]?.textPointSize ?? 60;
+      const pos = textPositions[charIndex] || { x: 0, y: 0 };
 
       currentPage.characters.push({
-        x: 0,
-        y: 0,
+        x: pos.x,
+        y: pos.y,
         char: ch,
         fontFamily: config.textFontFamily || "serif",
         fontSize,
@@ -196,35 +193,40 @@ export interface Grid {
 // CommentaryEntry 已在 types/layout.ts 中定义，此处不重复导出
 
 /** 创建新页面 */
-function createNewPage(pageNum: number): Page {
+function createNewPage(pageNum: number, canvas?: CanvasConfig): Page {
   return {
     pageNumber: pageNum,
-    canvas: {
-      width: 2480,
-      height: 1860,
-      color: "white",
-      margins: { top: 200, bottom: 50, left: 50, right: 50 },
-      leafCol: 24,
-      leafCenterWidth: 120,
-      multiRows: { enabled: false, num: 1, lineWidth: 0, separatorColor: "#f5f5f5" },
-      outerBorder: { width: 10, color: "black", hMargin: 5, vMargin: 5 },
-      innerBorder: { width: 1, color: "black" },
-      fishTail: {
-        top: { y: 450, color: "black", rectHeight: 50, triHeight: 30, lineWidth: 15 },
-        bottom: { y: 1550, color: "black", rectHeight: 50, triHeight: 30, lineWidth: 15, direction: 1 },
-        style: "triangle",
-        decorativeLines: { color: "black", width: 1, margin: 5 },
-      },
-      logoY: 1680,
-      logoColor: "white",
-      logoFont: "qiji-combo.ttf",
-      logoFontSize: 40,
-    },
+    canvas: canvas ?? getDefaultCanvas(),
     title: "",
     characters: [],
     commentaries: [],
     decorations: [],
     marks: [],
+  };
+}
+
+/** 兜底默认画布（当 canvas 未传入时使用） */
+function getDefaultCanvas(): CanvasConfig {
+  return {
+    width: 2480,
+    height: 1860,
+    color: "white",
+    margins: { top: 200, bottom: 50, left: 50, right: 50 },
+    leafCol: 24,
+    leafCenterWidth: 120,
+    multiRows: { enabled: false, num: 1, lineWidth: 0, separatorColor: "#f5f5f5" },
+    outerBorder: { width: 10, color: "black", hMargin: 5, vMargin: 5 },
+    innerBorder: { width: 1, color: "black" },
+    fishTail: {
+      top: { y: 450, color: "black", rectHeight: 50, triHeight: 30, lineWidth: 15 },
+      bottom: { y: 1550, color: "black", rectHeight: 50, triHeight: 30, lineWidth: 15, direction: 1 },
+      style: "triangle",
+      decorativeLines: { color: "black", width: 1, margin: 5 },
+    },
+    logoY: 1680,
+    logoColor: "white",
+    logoFont: "qiji-combo.ttf",
+    logoFontSize: 40,
   };
 }
 

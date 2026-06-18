@@ -199,8 +199,35 @@ function computeMultirowPosition(
   bandIndex: number,
   rowInBand: number
 ): Point {
-  // 复用标准模式逻辑
-  return computeStandardPosition(canvas, colIndex, rowIndex, colWidth, rowHeight, rowNum, rowDeltaY);
+  const isLeftHalf = colIndex < Math.floor(canvas.leafCol / 2);
+
+  let x: number;
+  if (isLeftHalf) {
+    x = canvas.width - canvas.margins.right - colWidth * (canvas.leafCol - colIndex) + colWidth / 2;
+  } else {
+    x =
+      canvas.width -
+      canvas.margins.right -
+      colWidth * (canvas.leafCol - colIndex) +
+      colWidth / 2 -
+      canvas.leafCenterWidth;
+  }
+
+  // 多栏模式下按水平条带计算 Y 坐标
+  const bandHeight = (canvas.height - canvas.margins.top - canvas.margins.bottom);
+  const multirowsNum = canvas.multiRows.num || 1;
+  const rowsPerBand = rowNum / multirowsNum;
+  const rowH = bandHeight / rowNum; // 每行高度
+
+  // bandIndex 决定条带起始位置，rowInBand 决定条带内行位置
+  let y = canvas.margins.top + bandIndex * rowsPerBand * rowH + rowInBand * rowH + rowH / 2;
+
+  // 条带内最后一行偏移
+  if (rowInBand === rowsPerBand - 1) {
+    y += rowDeltaY;
+  }
+
+  return { x, y };
 }
 
 /**

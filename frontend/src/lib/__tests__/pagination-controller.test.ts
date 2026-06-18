@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { paginate, Grid } from "../pagination-controller";
-import type { BookConfig, CanvasConfig, Decoration, CommentaryEntry } from "../../types/layout";
+import type { BookConfig, CanvasConfig, Decoration, CommentaryEntry, Position } from "../../types/layout";
 
 function makeConfig(): BookConfig {
   return {
@@ -184,5 +184,55 @@ describe("paginate", () => {
 
     expect(result.pages).toHaveLength(1);
     expect(result.pages[0].characters.length).toBe(20);
+  });
+
+  it("使用 textPositions 填入字符坐标", () => {
+    const config = makeConfig();
+    const canvas = makeCanvas();
+    const grid = makeGrid();
+    const chars = ["字", "一", "测", "试"];
+    const textPositions: Position[] = [
+      { x: 100, y: 200 },
+      { x: 100, y: 300 },
+      { x: 200, y: 200 },
+      { x: 200, y: 300 },
+    ];
+
+    const result = paginate(canvas, config, grid, chars, makeCommentaryData(4), makeDecorations(), textPositions);
+
+    expect(result.pages[0].characters[0].x).toBe(100);
+    expect(result.pages[0].characters[0].y).toBe(200);
+    expect(result.pages[0].characters[1].x).toBe(100);
+    expect(result.pages[0].characters[1].y).toBe(300);
+    expect(result.pages[0].characters[2].x).toBe(200);
+    expect(result.pages[0].characters[2].y).toBe(200);
+    expect(result.pages[0].characters[3].x).toBe(200);
+    expect(result.pages[0].characters[3].y).toBe(300);
+  });
+
+  it("无 positions 时坐标默认为 0", () => {
+    const config = makeConfig();
+    const canvas = makeCanvas();
+    const grid = makeGrid();
+    const chars = ["字", "一"];
+
+    const result = paginate(canvas, config, grid, chars, makeCommentaryData(2), makeDecorations());
+
+    expect(result.pages[0].characters[0].x).toBe(0);
+    expect(result.pages[0].characters[0].y).toBe(0);
+  });
+
+  it("createNewPage 使用传入的 canvasConfig", () => {
+    const config = makeConfig();
+    const canvas = makeCanvas();
+    const modifiedCanvas: CanvasConfig = { ...canvas, width: 3000, color: "#f2ead9" };
+    const grid = makeGrid();
+    const chars = makeCharacters(25); // > 20, 会产生第二页
+
+    const result = paginate(modifiedCanvas, config, grid, chars, makeCommentaryData(25), makeDecorations());
+
+    // 第二页应使用 modifiedCanvas 的配置
+    expect(result.pages[1].canvas.width).toBe(3000);
+    expect(result.pages[1].canvas.color).toBe("#f2ead9");
   });
 });

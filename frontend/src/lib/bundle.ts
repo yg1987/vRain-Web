@@ -40,6 +40,8 @@ export interface VrainBundle {
   canvasConfig: CanvasConfig;
   /** 文本文件列表 */
   textFiles: TextFile[];
+  /** 封面图片 (base64 data URL) */
+  coverImage?: string;
 }
 
 export interface TextFile {
@@ -56,15 +58,17 @@ export function createBundle(
   name: string,
   bookConfig: BookConfig,
   canvasConfig: CanvasConfig,
-  textFiles: TextFile[]
+  textFiles: TextFile[],
+  coverImage?: string
 ): VrainBundle {
   return {
-    version: "vrain-web/0.1",
+    version: "vrain-web/0.2",
     exportedAt: new Date().toISOString(),
     name,
     bookConfig,
     canvasConfig,
     textFiles,
+    ...(coverImage ? { coverImage } : {}),
   };
 }
 
@@ -91,8 +95,8 @@ export function downloadBundle(bundle: VrainBundle, filename?: string): void {
 export function parseBundle(raw: string): VrainBundle {
   const data = JSON.parse(raw) as VrainBundle;
 
-  // 基本格式校验
-  if (data.version !== "vrain-web/0.1") {
+  // 基本格式校验 (允许 0.1 和 0.2)
+  if (data.version !== "vrain-web/0.1" && data.version !== "vrain-web/0.2") {
     throw new Error(`不支持的 bundle 版本: ${data.version}`);
   }
   if (!data.name) {

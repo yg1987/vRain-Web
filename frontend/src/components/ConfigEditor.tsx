@@ -4,6 +4,7 @@
  */
 import { useState, useCallback, useEffect } from "react";
 import type { BookConfig, CanvasConfig } from "../types/layout";
+import { getCanvasPreset, getCanvasPresetLabel, getCanvasPresetIds, isKnownPreset } from "../lib/canvas-presets";
 
 interface Props {
   bookConfig: BookConfig;
@@ -69,20 +70,33 @@ export default function ConfigEditor({ bookConfig, canvasConfig, onChange }: Pro
         </div>
 
         <div className="config-group">
-          <label className="config-group-label">画布 ID (canvas_id)</label>
+          <label className="config-group-label">画布预设</label>
           <select
             className="config-select"
-            value={book.canvasId}
-            onChange={(e) =>
-              commitBook({ ...book, canvasId: e.target.value })
-            }
+            value={isKnownPreset(book.canvasId) ? book.canvasId : "_custom"}
+            onChange={(e) => {
+              const id = e.target.value;
+              if (id === "_custom") return;
+              const preset = getCanvasPreset(id);
+              if (preset) {
+                // 一次 onChange 同时更新 book 和 canvas
+                const newBook = { ...book, canvasId: id };
+                setBook(newBook);
+                setCanvas({ ...preset });
+                onChange(newBook, { ...preset });
+              }
+            }}
           >
-            <option value="24_black_blank">24_black_blank</option>
-            <option value="24_paper">24_paper</option>
-            <option value="simple">simple</option>
-            <option value="bamboo">bamboo</option>
-            <option value="vintage">vintage</option>
+            {getCanvasPresetIds().map((id) => (
+              <option key={id} value={id}>{getCanvasPresetLabel(id)}</option>
+            ))}
+            <option value="_custom" disabled={isKnownPreset(book.canvasId)}>
+              ── 自定义 ──
+            </option>
           </select>
+          <p className="mt-1 text-[10px] text-ink/40">
+            选择预设将自动替换下方画布参数
+          </p>
         </div>
 
         {/* 简繁对照 */}

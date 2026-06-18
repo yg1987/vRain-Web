@@ -4,18 +4,19 @@
 
 > 基于 [shanleiguang/vRain](https://github.com/shanleiguang/vRain) 改造，完整保留原始提交历史。原始项目为 Perl 命令行工具，本工程将其改造为 Web 应用。
 
-![vRain](https://img.shields.io/badge/vRain-v0.1.0-blue)
+![vRain](https://img.shields.io/badge/vRain-v0.2.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
+![Tests](https://img.shields.io/badge/tests-70%20passed-brightgreen)
 
 ## 简介
 
 vRain (兀雨) 是一个将 UTF-8 纯文本转换为**仿古籍刻本风格竖排 PDF 电子书**的 Web 工具。
 
-- **可视化配置** — 字体、颜色、间距、装饰标记，实时预览
+- **可视化配置** — 字体、颜色、间距、装饰标记、标点规则，实时预览
 - **跨平台** — 浏览器打开即用，无需安装 Perl 或任何依赖
 - **实时预览** — Canvas 2D 逐字渲染，参数改一下就能看效果
 - **一键导出** — 生成 PDF 直接下载
-- **简繁对照** — 内置选项替代 `vrain_mr.pl` (替代 Encode::HanConvert)
+- **简繁对照** — 内置后端 opencc API + 前端映射表回退
 - **导入导出** — JSON Bundle 备份 / 原版 `.cfg` + `.txt` 互转
 
 ---
@@ -65,7 +66,7 @@ npm start -- --port 3100 --backend-port 8180
 
 # 方式二：编辑 .env.local
 # VITE_PORT=3100
-# PORT=8180
+# VITE_BACKEND_PORT=8180
 ```
 
 ### 开发模式
@@ -74,8 +75,15 @@ npm start -- --port 3100 --backend-port 8180
 npm run dev
 ```
 
-- 前端: http://localhost:5173
+- 前端: http://localhost:3000（可通过 `VITE_PORT` 环境变量修改）
 - 后端 API: http://localhost:8080
+
+### 测试
+
+```bash
+# 运行全部 70 项单元测试
+npm test
+```
 
 ---
 
@@ -231,48 +239,66 @@ npm run dev
 
 ```
 vrain-web/
-├── frontend/                 # React 前端应用
+├── frontend/                          # React 前端 (Vite + TypeScript)
 │   ├── src/
-│   │   ├── components/      # UI 组件
-│   │   │   ├── ProjectList.tsx
-│   │   │   ├── ProjectDetail.tsx
-│   │   │   ├── ConfigEditor.tsx
-│   │   │   ├── TextEditor.tsx
-│   │   │   ├── PreviewViewport.tsx
-│   │   │   ├── PdfExportPanel.tsx
-│   │   │   └── ImportExportPanel.tsx
-│   │   ├── hooks/           # 自定义 hooks
-│   │   │   ├── usePreview.ts
-│   │   │   └── usePdfExport.ts
-│   │   ├── lib/             # 布局引擎 / 工具函数
-│   │   │   ├── config-parser.ts
-│   │   │   ├── grid-calculator.ts
-│   │   │   ├── text-parser.ts
-│   │   │   ├── pagination-controller.ts
-│   │   │   ├── markup-parser.ts
-│   │   │   ├── font-resolver.ts
-│   │   │   ├── preview-renderer.ts
-│   │   │   ├── ir-to-css.ts
-│   │   │   ├── simp-trad.ts          # 简繁转换
-│   │   │   ├── bundle.ts             # JSON Bundle
-│   │   │   └── visual-regression.ts  # 视觉回归测试
-│   │   ├── types/           # TypeScript 类型定义
-│   │   └── styles/          # 全局样式
+│   │   ├── components/                # UI 组件
+│   │   │   ├── ProjectList.tsx            # 项目列表 (支持创建/删除)
+│   │   │   ├── ProjectDetail.tsx          # 主工作区 (4 标签页)
+│   │   │   ├── ProjectSidebar.tsx         # 项目侧边栏
+│   │   │   ├── ProjectLayout.tsx          # 布局容器
+│   │   │   ├── ConfigEditor.tsx           # 书籍+画布配置
+│   │   │   ├── DecorationPanel.tsx        # 装饰标记配置 (7 种)
+│   │   │   ├── PunctuationPanel.tsx       # 标点规则配置
+│   │   │   ├── TextEditor.tsx             # 文本编辑器
+│   │   │   ├── PreviewViewport.tsx        # Canvas 实时预览
+│   │   │   ├── PdfExportPanel.tsx         # PDF 导出面板
+│   │   │   ├── FontSelector.tsx           # 字体选择器
+│   │   │   ├── ImportExportPanel.tsx      # 导入/导出面板
+│   │   │   └── ErrorBoundary.tsx          # 错误边界
+│   │   ├── hooks/                     # 自定义 hooks
+│   │   │   ├── usePreview.ts              # 预览状态管理
+│   │   │   ├── usePdfExport.ts            # PDF 导出
+│   │   │   └── useProjectStore.ts         # 项目持久化 (localStorage)
+│   │   ├── lib/                       # 布局引擎 (纯 TypeScript)
+│   │   │   ├── config-parser.ts           # .cfg 文件解析
+│   │   │   ├── grid-calculator.ts         # 网格坐标计算
+│   │   │   ├── text-parser.ts             # 文本预处理 (标点/数字/夹批)
+│   │   │   ├── pagination-controller.ts   # 分页控制
+│   │   │   ├── markup-parser.ts           # 装饰标记解析 + Decoration IR
+│   │   │   ├── font-resolver.ts           # 字体字形检测 (opentype.js)
+│   │   │   ├── preview-renderer.ts        # Canvas 2D 渲染
+│   │   │   ├── ir-to-css.ts              # IR → HTML/CSS (PDF)
+│   │   │   ├── simp-trad.ts              # 简繁转换 (API优先+本地回退)
+│   │   │   ├── bundle.ts                 # JSON Bundle 导入/导出
+│   │   │   ├── num2zh.ts                 # 中文数字转换
+│   │   │   ├── visual-regression.ts       # 视觉回归测试工具
+│   │   │   └── __tests__/                # 70 项单元测试
+│   │   ├── types/layout.ts           # IR 类型定义
+│   │   └── styles/                   # 全局样式
 │   └── package.json
 │
-├── backend/                  # Fastify API 服务器
+├── backend/                           # Fastify API 服务器
 │   ├── src/
-│   │   ├── app.ts
+│   │   ├── app.ts                         # 服务入口 + 路由注册
+│   │   ├── routes/
+│   │   │   ├── fonts.ts                   # 字体上传/列表/静态服务
+│   │   │   └── tools.ts                   # 简繁转换 (opencc)
 │   │   ├── services/
-│   │   │   └── pdf-generator.ts
+│   │   │   └── pdf-generator.ts           # Puppeteer PDF 生成
 │   │   └── types/
-│   │       └── layout.ts
+│   │       └── layout.ts                  # 类型 (re-export 自前端)
+│   ├── uploads/fonts/                # 上传字体存储
 │   └── package.json
 │
-├── vRain/                    # 原版 Perl 代码 (参考)
-├── start.mjs                 # 跨平台一键启动 (Node.js)
-├── .env.local                # 端口配置
-├── PLAN.md                   # 开发计划
+├── doc/                              # 文档
+│   ├── PLAN.md                           # 原始开发计划
+│   ├── FEATURES.md                       # 完整功能清单
+│   ├── analysis-report.md                # Codegraph 分析报告
+│   └── continue-plan.md                  # 继续开发计划
+│
+├── vRain/                            # 原版 Perl 代码 (参考)
+├── start.mjs                         # 跨平台一键启动
+├── .env.local                        # 端口配置
 └── README.md
 ```
 
@@ -290,12 +316,53 @@ npm run dev
 # 类型检查
 npm run typecheck
 
+# 运行测试 (70 项)
+npm test
+
 # 格式化
 npm run format
 
-# 构建
+# 生产构建
 npm run build
 ```
+
+### 后端 API
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/health` | 健康检查 |
+| GET | `/api/tools/health` | 服务状态 (含 opencc 检测) |
+| POST | `/api/tools/simp2trad` | 简繁转换 `{ text } → { result }` |
+| POST | `/api/render/pdf` | PDF 生成 |
+| POST | `/api/fonts/upload` | 字体上传 (.ttf/.otf/.woff2, ≤50MB) |
+| GET | `/api/fonts` | 字体列表 |
+| GET | `/api/fonts/file/:filename` | 字体静态文件 |
+
+### 测试
+
+70 项单元测试覆盖核心布局引擎：
+
+| 测试文件 | 数量 | 覆盖模块 |
+|----------|:----:|----------|
+| `config-parser.test.ts` | 17 | .cfg 解析、BookConfig/CanvasConfig 转换 |
+| `text-parser.test.ts` | 13 | 标点替换/删除/句号模式/夹批提取 |
+| `markup-parser.test.ts` | 15 | 7 种装饰标记剥离、包围盒计算、跨页分配 |
+| `pagination-controller.test.ts` | 9 | 分页、坐标分配、控制标记、canvas 透传 |
+| `grid-calculator.test.ts` | 7 | 网格尺寸、中缝偏移、多栏模式 |
+| `num2zh.test.ts` | 9 | 中文数字映射、页码、标题后缀 |
+
+---
+
+## 项目状态
+
+- **布局引擎**: 核心管线完整 (Config → Grid → Text → Markup → Pagination → IR)
+- **预览**: Canvas 2D 实时渲染 (封面/鱼尾/边框/夹批)
+- **PDF 导出**: IR → HTML/CSS → Puppeteer → PDF
+- **项目管理**: localStorage 持久化，创建/保存/列表/自动保存
+- **装饰标记**: 7 种完整支持，配置面板可调参数
+- **简繁对照**: 后端 opencc API + 前端映射表双保险
+- **字体管理**: 上传/列表/静态服务
+- **导入导出**: JSON Bundle / 原版 .cfg+.txt 互转
 
 ---
 
@@ -305,4 +372,4 @@ MIT © shanleiguang
 
 ---
 
-*基于 vRain v1.5.1 源码重写 | 计划生成: 2026-06-11*
+*基于 vRain v1.5.1 源码重写 | 当前版本 v0.2.0 | 最后更新: 2026-06-18*
