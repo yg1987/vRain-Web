@@ -1,0 +1,469 @@
+/**
+ * 预览渲染器 (Preview Renderer)
+ * 接收 Layout Engine 输出的 IR (Page[])，在 Canvas 2D 上逐帧绘制。
+ * 纯函数，无外部依赖，可独立测试。
+ */
+
+import type { Page, BookConfig, CanvasConfig } from "../types/layout";
+
+export interface RendererOptions {
+  /** 缩放比例 (默认 1, 可 >1 高清放大, <1 缩小) */
+  scale?: number;
+  /** 要渲染的页面索引 (从 1 开始) */
+  pageIndex?: number;
+  /** 是否渲染封面 */
+  renderCover?: boolean;
+}
+
+export interface RenderResult {
+  canvasWidth: number;
+  canvasHeight: number;
+  renderedPageCount: number;
+}
+
+/** 将 IR 渲染到 Canvas 2D */
+export function renderPages(
+  canvas: HTMLCanvasElement,
+  pages: Page[],
+  bookConfig: BookConfig,
+  canvasConfig: CanvasConfig,
+  opts: RendererOptions = {},
+): RenderResult {
+  const {
+    scale = 1,
+    pageIndex = 0,
+    renderCover = false,
+  } = opts;
+
+  const dpr = window.devicePixelRatio || 1;
+  const cssWidth = Math.ceil(canvasConfig.width / 10) * 10; // 缩放以便在屏幕显示
+  const cssHeight = Math.ceil((canvasConfig.height * cssWidth) / canvasConfig.width);
+
+  canvas.width = cssWidth * scale * dpr;
+  canvas.height = cssHeight * scale * dpr;
+  canvas.style.width = cssWidth + "px";
+  canvas.style.height = cssHeight + "px";
+
+  const ctx = canvas.getContext("2d")!;
+  ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+  ctx.scale(cssWidth / canvasConfig.width, cssHeight / canvasConfig.height);
+
+  // 清屏
+  ctx.fillStyle = canvasConfig.color || "white";
+  ctx.fillRect(0, 0, canvasConfig.width, canvasConfig.height);
+
+  // 绘制封面或内容页
+  if (renderCover) {
+    drawCover(ctx, bookConfig, canvasConfig);
+  } else {
+    const pageIdx = pageIndex > 0 ? pageIndex - 1 : 0;
+    if (pageIdx < pages.length) {
+      drawPage(ctx, pages[pageIdx], bookConfig, canvasConfig);
+    }
+  }
+
+  return {
+    canvasWidth: cssWidth,
+    canvasHeight: cssHeight,
+    renderedPageCount: pages.length,
+  };
+}
+
+/** 绘制封面页 */
+function drawCover(ctx: CanvasRenderingContext2D, config: BookConfig, canvasConfig: CanvasConfig) {
+  const cw = canvasConfig.width;
+  const ch = canvasConfig.height;
+  const plx = cw < ch ? cw : cw / 2;
+
+  // 仿古纸张背景
+  ctx.fillStyle = "#f2ead9";
+  ctx.fillRect(0, 0, cw, ch);
+
+  // 装饰中线
+  ctx.strokeStyle = "#f2f2f2";
+  ctx.lineWidth = 20;
+  ctx.beginPath();
+  ctx.moveTo(plx, 0);
+  ctx.lineTo(plx, ch);
+  ctx.stroke();
+
+  ctx.strokeStyle = "#f2f2f2";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(plx - 50, 0);
+  ctx.lineTo(plx - 50, ch);
+  ctx.moveTo(plx + 50, 0);
+  ctx.lineTo(plx + 50, ch);
+  ctx.stroke();
+
+  // 横线装饰
+  ctx.lineWidth = 1;
+  for (let y = 0; y < ch; y += 200) {
+    ctx.beginPath();
+    ctx.moveTo(plx - 50, y);
+    ctx.lineTo(plx + 50, y);
+    ctx.stroke();
+  }
+
+  // 书名竖排
+  drawVerticalText(ctx, config.title, plx - config.coverTitleFontSize / 2, config.coverTitleY, {
+    size: config.coverTitleFontSize,
+    color: config.coverFontColor || "black",
+  });
+
+  // 作者竖排
+  drawVerticalText(ctx, config.author, plx - config.coverAuthorFontSize / 2, config.coverAuthorY, {
+    size: config.coverAuthorFontSize,
+    color: config.coverFontColor || "black",
+  });
+}
+
+/** 绘制内容页 */
+function drawPage(ctx: CanvasRenderingContext2D, page: Page, bookConfig: BookConfig, canvasConfig: CanvasConfig) {
+  // 背景色
+  ctx.fillStyle = page.canvas.color || "white";
+  ctx.fillRect(0, 0, page.canvas.width, page.canvas.height);
+
+  // 边框
+  drawBorders(ctx, page.canvas);
+
+  // 鱼尾
+  drawFishTails(ctx, page.canvas);
+
+  // 版心标题
+  if (page.title && page.canvas.leafCenterWidth > 0) {
+    drawTitle(ctx, page.title, bookConfig, page);
+  }
+
+  // 版心页码
+  drawPageNumber(ctx, page.pageNumber, bookConfig, page.canvas);
+
+  // 字符
+  for (const ch of page.characters) {
+    if (ch.isCommentary) continue; // 批注单独绘制
+    drawCharacter(ctx, ch);
+  }
+
+  // 夹批
+  for (const cm of page.commentaries) {
+    drawCommentary(ctx, cm);
+  }
+
+  // 装饰
+  for (const dec of page.decorations) {
+    drawDecoration(ctx, dec);
+  }
+}
+
+/** 绘制边框 */
+function drawBorders(ctx: CanvasRenderingContext2D, canvas: CanvasConfig) {
+  const { margins, outerBorder, innerBorder, leafCenterWidth, leafCol } = canvas;
+
+  // 外框
+  ctx.strokeStyle = outerBorder.color || "black";
+  ctx.lineWidth = outerBorder.width || 10;
+  ctx.strokeRect(
+    margins.left,
+    margins.top,
+    canvas.width - margins.left - margins.right,
+    canvas.height - margins.top - margins.bottom,
+  );
+
+  // 内框
+  ctx.strokeStyle = innerBorder.color || "black";
+  ctx.lineWidth = innerBorder.width || 1;
+  const iMargin = 5;
+  ctx.strokeRect(
+    margins.left + iMargin,
+    margins.top + iMargin,
+    canvas.width - margins.left - margins.right - iMargin * 2,
+    canvas.height - margins.top - margins.bottom - iMargin * 2,
+  );
+
+  // 中缝线 (版心分隔)
+  if (leafCenterWidth > 0) {
+    const centerX = canvas.width / 2;
+    ctx.strokeStyle = innerBorder.color || "black";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(centerX, margins.top);
+    ctx.lineTo(centerX, canvas.height - margins.bottom);
+    ctx.stroke();
+  }
+
+  // 分栏线
+  const usableWidth = canvas.width - margins.left - margins.right - leafCenterWidth;
+  const colWidth = usableWidth / leafCol;
+  ctx.strokeStyle = "#e0e0e0";
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= leafCol; i++) {
+    const x = margins.left + (i <= leafCol / 2 ? i * colWidth : i * colWidth + leafCenterWidth);
+    ctx.beginPath();
+    ctx.moveTo(x, margins.top);
+    ctx.lineTo(x, canvas.height - margins.bottom);
+    ctx.stroke();
+  }
+
+  // 多栏水平分隔线
+  if (canvas.multiRows.enabled && canvas.multiRows.num > 1) {
+    const rowHeight = (canvas.height - margins.top - margins.bottom) / canvas.multiRows.num;
+    ctx.strokeStyle = canvas.multiRows.separatorColor || "#f5f5f5";
+    ctx.lineWidth = canvas.multiRows.lineWidth || 2;
+    for (let i = 1; i < canvas.multiRows.num; i++) {
+      const y = margins.top + i * rowHeight;
+      ctx.beginPath();
+      ctx.moveTo(margins.left, y);
+      ctx.lineTo(canvas.width - margins.right, y);
+      ctx.stroke();
+    }
+  }
+}
+
+/** 绘制鱼尾 */
+function drawFishTails(ctx: CanvasRenderingContext2D, canvas: CanvasConfig) {
+  const { fishTail, margins } = canvas;
+  const centerX = canvas.width / 2;
+  const color = fishTail.top.color || "black";
+  const halfColWidth = (canvas.width - margins.left - margins.right - canvas.leafCenterWidth) / (2 * canvas.leafCol);
+
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+
+  // 上鱼尾
+  drawSingleFishTail(ctx, centerX, fishTail.top.y, fishTail.top.rectHeight, fishTail.top.triHeight, fishTail.top.lineWidth, 0);
+
+  // 下鱼尾
+  const btmDir = fishTail.bottom.direction || 1;
+  drawSingleFishTail(ctx, centerX, fishTail.bottom.y, fishTail.bottom.rectHeight, fishTail.bottom.triHeight, fishTail.bottom.lineWidth, btmDir);
+}
+
+function drawSingleFishTail(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  y: number,
+  rectH: number,
+  triH: number,
+  lineWidth: number,
+  direction: number,
+) {
+  // 鱼尾主体 (矩形)
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.fillRect(cx - lineWidth / 2, y, lineWidth, rectH);
+
+  // 三角形
+  ctx.beginPath();
+  const triDir = direction === 0 ? -1 : 1; // 0=向下, 1=向上
+  ctx.moveTo(cx, y + rectH + triDir * triH);
+  ctx.lineTo(cx - lineWidth * 3, y + rectH);
+  ctx.lineTo(cx + lineWidth * 3, y + rectH);
+  ctx.closePath();
+  ctx.fill();
+}
+
+/** 绘制竖排文字 */
+function drawVerticalText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  opts: { size: number; color: string; lineSpacing?: number },
+) {
+  const { size, color, lineSpacing = 1.25 } = opts;
+  const chars = [...text];
+
+  ctx.fillStyle = color;
+  ctx.font = `${size}px serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+
+  for (let i = 0; i < chars.length; i++) {
+    const cy = y + i * size * lineSpacing;
+    ctx.fillText(chars[i], x, cy);
+  }
+}
+
+/** 绘制单个字符 (IR Character) */
+function drawCharacter(ctx: CanvasRenderingContext2D, char: import("../types/layout").Character) {
+  ctx.save();
+  ctx.fillStyle = char.color || "black";
+  ctx.font = `${char.fontSize}px serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+
+  if (char.rotation) {
+    ctx.translate(char.x, char.y);
+    ctx.rotate((char.rotation * Math.PI) / 180);
+    ctx.fillText(char.char, 0, 0);
+  } else {
+    ctx.fillText(char.char, char.x, char.y);
+  }
+
+  ctx.restore();
+}
+
+/** 绘制夹批 (双列小字) */
+function drawCommentary(ctx: CanvasRenderingContext2D, cm: import("../types/layout").Commentary) {
+  ctx.save();
+  ctx.fillStyle = cm.color || "black";
+  ctx.font = `${cm.fontSize}px serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+
+  const chars = cm.chars;
+  const colWidth = cm.fontSize * 0.6; // 半字符宽
+
+  for (let i = 0; i < chars.length; i++) {
+    const col = Math.floor(i / 2);
+    const inCol = i % 2;
+    const cx = cm.x + (inCol === 0 ? 0 : colWidth);
+    const cy = cm.y + col * cm.fontSize;
+    ctx.fillText(chars[i], cx, cy);
+  }
+
+  ctx.restore();
+}
+
+/** 绘制装饰标记 */
+function drawDecoration(ctx: CanvasRenderingContext2D, dec: import("../types/layout").Decoration) {
+  ctx.save();
+  ctx.strokeStyle = dec.color || "black";
+  ctx.lineWidth = dec.strokeWidth || 2;
+  ctx.lineCap = "round";
+
+  const { x1, y1, x2, y2 } = dec.bounds;
+
+  switch (dec.type) {
+    case "wavyLine":
+      // 正弦波浪线
+      drawWavyLine(ctx, x1, y1, x2, y2, dec.strokeWidth);
+      break;
+    case "circleNote":
+      // 圈注小圆
+      ctx.beginPath();
+      ctx.arc(x1, y1, dec.strokeWidth * 2, 0, Math.PI * 2);
+      ctx.stroke();
+      break;
+    case "lineNote":
+      // 行注竖线
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      break;
+    case "pointNote":
+      // 顿点注 (、)
+      ctx.fillStyle = dec.color || "black";
+      ctx.font = `${dec.strokeWidth * 4}px serif`;
+      ctx.textAlign = "center";
+      ctx.fillText("、", x1, y1);
+      break;
+    case "rectFrame":
+      // 圆角矩形框
+      ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+      break;
+    case "circleFrame":
+      // 圆圈
+      const radius = Math.max(x2 - x1, y2 - y1) / 2;
+      const cx = (x1 + x2) / 2;
+      const cy = (y1 + y2) / 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      break;
+  }
+
+  ctx.restore();
+}
+
+/** 绘制正弦波浪线 (书名号装饰) */
+function drawWavyLine(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  amplitude: number,
+) {
+  const steps = Math.max(1, Math.ceil(Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)));
+  const waveAmp = amplitude || 2;
+  const waveLen = 10;
+
+  ctx.beginPath();
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const baseX = x1 + (x2 - x1) * t;
+    const baseY = y1 + (y2 - y1) * t;
+    const waveOffset = Math.sin((t * Math.PI * 2 * steps) / waveLen) * waveAmp;
+    // 垂直于线条方向的偏移
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const nx = -dy / len;
+    const ny = dx / len;
+    ctx.moveTo(baseX + nx * waveOffset, baseY + ny * waveOffset);
+  }
+  ctx.stroke();
+}
+
+/** 绘制版心标题 */
+function drawTitle(
+  ctx: CanvasRenderingContext2D,
+  title: string,
+  bookConfig: BookConfig,
+  page: Page,
+) {
+  const chars = [...title];
+  const yStart = bookConfig.titleY;
+  const fontSize = bookConfig.titleFontSize;
+  const spacing = bookConfig.titleYDis;
+
+  ctx.fillStyle = bookConfig.titleColor || "black";
+  ctx.font = `${fontSize}px serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+
+  const canvasCenterX = page.canvas.width / 2 - fontSize / 2;
+
+  for (let i = 0; i < chars.length; i++) {
+    const cy = yStart - i * fontSize * spacing;
+    ctx.fillText(chars[i], canvasCenterX, cy);
+  }
+}
+
+/** 绘制版心页码 (中文数字竖排) */
+function drawPageNumber(ctx: CanvasRenderingContext2D, pageNum: number, config: BookConfig, canvas: CanvasConfig) {
+  const numStr = numToZhChinese(pageNum);
+  const chars = [...numStr];
+  const yStart = config.pagerY;
+  const fontSize = config.pagerFontSize;
+  const centerX = canvas.width / 2 - fontSize / 2;
+
+  ctx.fillStyle = config.pagerColor || "black";
+  ctx.font = `${fontSize}px serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+
+  for (let i = 0; i < chars.length; i++) {
+    const cy = yStart + i * fontSize * 1.2;
+    ctx.fillText(chars[i], centerX, cy);
+  }
+}
+
+/** 阿拉伯数字转中文数字字符串 */
+function numToZhChinese(n: number): string {
+  if (n === 0) return "〇";
+  if (n <= 9) return "一二三四五六七八九"[n - 1];
+  if (n === 10) return "十";
+  if (n < 20) return "十一十二十三十四十五十六十七十八十九"[n - 11 - 1] + "十"; // 简易
+  if (n < 100) {
+    const tens = Math.floor(n / 10);
+    const ones = n % 10;
+    const tensStr = "一二三四五六七八九"[tens - 1];
+    return ones === 0 ? tensStr + "十" : tensStr + "十" + "一二三四五六七八九"[ones - 1];
+  }
+  // 100+
+  const hundreds = Math.floor(n / 100);
+  const remainder = n % 100;
+  const hStr = "一二三四五六七八九"[hundreds - 1];
+  return remainder === 0 ? hStr + "百" : hStr + "百" + numToZhChinese(remainder);
+}
