@@ -2,6 +2,7 @@
  * 左侧项目信息 — 纯展示，不做导航
  * 配置变更后通过 props 实时更新显示
  */
+import { useNavigate } from "react-router-dom";
 import type { FontEntry } from "../types/layout";
 
 interface ProjectSidebarProps {
@@ -21,8 +22,19 @@ export default function ProjectSidebar({
   rowNum = 0,
   canvasId = "",
 }: ProjectSidebarProps) {
+  const navigate = useNavigate();
+
   return (
     <div>
+      <button
+        onClick={() => navigate("/")}
+        className="mb-4 flex items-center gap-1 text-xs text-ink/40 hover:text-ink/70 transition-colors"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+        </svg>
+        返回项目列表
+      </button>
       <h3 className="mb-4 text-sm font-semibold text-ink/70">项目</h3>
 
       {/* 项目信息 */}

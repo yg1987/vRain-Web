@@ -100,6 +100,7 @@ export function parseBookConfig(raw: ConfigMap): BookConfig {
     commentFontFamily,
     textFontColor: str("text_font_color", "black"),
     commentFontColor: str("comment_font_color", "black"),
+    coverTitleFontFamily: str("cover_title_font_family", ""),
     coverTitleFontSize: int("cover_title_font_size", 120),
     coverTitleY: int("cover_title_y", 200),
     coverAuthorFontSize: int("cover_author_font_size", 60),
@@ -136,19 +137,19 @@ export function parseBookConfig(raw: ConfigMap): BookConfig {
       bookLine: {
         enabled: bool("if_tag_bookline"),
         width: int("book_line_width", 2),
-        color: str("book_line_color", "black"),
+        color: str("book_line_color", "#000000"),
       },
       rectFrame: {
         enabled: bool("if_tag_rectframe"),
         borderType: int("rect_type", 1) as 0 | 1,
-        borderColor: str("rect_bcolor", "black"),
-        fillColor: str("rect_fcolor", "black"),
+        borderColor: str("rect_bcolor", "#874434"),
+        fillColor: str("rect_fcolor", "#000000"),
       },
       circleFrame: {
         enabled: bool("if_tag_circleframe"),
         borderType: int("circle_type", 1) as 0 | 1,
-        borderColor: str("circle_bcolor", "black"),
-        fillColor: str("circle_fcolor", "white"),
+        borderColor: str("circle_bcolor", "#874434"),
+        fillColor: str("circle_fcolor", "#ffffff"),
       },
       textZoom: {
         enabled: bool("if_tag_textzoom"),

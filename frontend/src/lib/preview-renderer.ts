@@ -109,12 +109,14 @@ function drawCover(ctx: CanvasRenderingContext2D, config: BookConfig, canvasConf
   drawVerticalText(ctx, config.title, plx - config.coverTitleFontSize / 2, config.coverTitleY, {
     size: config.coverTitleFontSize,
     color: config.coverFontColor || "black",
+    fontFamily: config.coverTitleFontFamily,
   });
 
-  // 作者竖排
+  // 作者竖排（沿用正文）
   drawVerticalText(ctx, config.author, plx - config.coverAuthorFontSize / 2, config.coverAuthorY, {
     size: config.coverAuthorFontSize,
     color: config.coverFontColor || "black",
+    fontFamily: config.textFontFamily,
   });
 }
 
@@ -266,13 +268,13 @@ function drawVerticalText(
   text: string,
   x: number,
   y: number,
-  opts: { size: number; color: string; lineSpacing?: number },
+  opts: { size: number; color: string; lineSpacing?: number; fontFamily?: string },
 ) {
-  const { size, color, lineSpacing = 1.25 } = opts;
+  const { size, color, lineSpacing = 1.25, fontFamily = "serif" } = opts;
   const chars = [...text];
 
   ctx.fillStyle = color;
-  ctx.font = `${size}px serif`;
+  ctx.font = `${size}px "${fontFamily}", serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
 

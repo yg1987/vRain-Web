@@ -26,7 +26,7 @@ import { usePreview } from "../hooks/usePreview";
 import { api } from "../lib/api";
 import { DEFAULT_BOOK_CONFIG, DEFAULT_CANVAS_CONFIG, DEFAULT_TEXT_LINES } from "../hooks/useProjectStore";
 
-import type { BookConfig, CanvasConfig } from "../types/layout";
+import type { BookConfig, CanvasConfig, FontEntry } from "../types/layout";
 
 export default function ProjectDetail() {
   const { id: projectId } = useParams<{ id: string }>();
@@ -47,9 +47,12 @@ export default function ProjectDetail() {
       try {
         setLoading(true);
         const project = await api.getProject(projectId);
-        setBookConfig(project.bookConfig as BookConfig);
+        const bConfig = project.bookConfig as BookConfig;
+        setBookConfig(bConfig);
         setCanvasConfig(project.canvasConfig as CanvasConfig);
         setTextLines(project.textLines.map((arr) => [...arr]));
+        // 加载字体到浏览器供 canvas 渲染
+        loadFontsToBrowser(bConfig.fonts);
       } catch (err) {
         console.error("加载项目失败:", err);
         // 项目不存在时使用默认值
@@ -80,6 +83,22 @@ export default function ProjectDetail() {
     triggerSave();
   }, [bookConfig, canvasConfig, textLines, triggerSave]);
 
+  // ========== 加载字体到浏览器 ==========
+  const loadFontsToBrowser = useCallback(async (fonts: FontEntry[]) => {
+    for (const font of fonts) {
+      // 跳过已加载的字体
+      if (document.fonts.check(`12px "${font.name}"`)) continue;
+      try {
+        const fontUrl = `/api/fonts/file/${font.filename}`;
+        const fontFace = new FontFace(font.name, `url(${fontUrl})`);
+        const loaded = await fontFace.load();
+        document.fonts.add(loaded);
+      } catch {
+        // 字体文件可能不存在，忽略
+      }
+    }
+  }, []);
+
   // 预览 Hook — 配置+文本变更自动重建预览
   const preview = usePreview({
     bookConfig,
@@ -98,11 +117,13 @@ export default function ProjectDetail() {
 
   // ========== 字体选择变更回调 ==========
   const onFontChange = useCallback(
-    (textFontFamily: string, commentFontFamily: string, textFontSize: number, commentFontSize: number) => {
+    (textFontFamily: string, commentFontFamily: string, textFontSize: number, commentFontSize: number, coverTitleFontFamily: string, coverTitleFontSize: number) => {
       setBookConfig((prev) => ({
         ...prev,
         textFontFamily,
         commentFontFamily,
+        coverTitleFontFamily,
+        coverTitleFontSize,
         fonts: prev.fonts.map((f) => ({
           ...f,
           textPointSize: textFontSize,
@@ -116,6 +137,13 @@ export default function ProjectDetail() {
   // ========== 字体上传回调 ==========
   const onFontUploaded = useCallback(() => {
     setBookConfig((prev) => ({ ...prev }));
+  }, []);
+
+  const onFontAdd = useCallback((font: FontEntry) => {
+    setBookConfig((prev) => ({
+      ...prev,
+      fonts: [...prev.fonts, font],
+    }));
   }, []);
 
   // ========== 预览交互回调 ==========
@@ -208,10 +236,13 @@ export default function ProjectDetail() {
                 fonts={bookConfig.fonts}
                 textFontFamily={bookConfig.textFontFamily}
                 commentFontFamily={bookConfig.commentFontFamily}
+                coverTitleFontFamily={bookConfig.coverTitleFontFamily}
                 textFontSize={bookConfig.fonts[0]?.textPointSize || 60}
                 commentFontSize={bookConfig.fonts[0]?.commentPointSize || 45}
+                coverTitleFontSize={bookConfig.coverTitleFontSize}
                 onChange={onFontChange}
                 onFontUploaded={onFontUploaded}
+                onFontAdd={onFontAdd}
               />
               <ImportExportPanel
                 bookConfig={bookConfig}

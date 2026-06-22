@@ -31,6 +31,9 @@ export default function DecorationPanel({ bookConfig, onChange }: Props) {
       <p className="mb-3 text-xs text-ink/50">
         控制文本中《》〔〕〈〉（）｛｝＜＞［］标记的渲染效果
       </p>
+      <p className="mb-4 text-[11px] text-amber-700/70">
+        💡 默认文本已包含所有标记示例，切换到「预览」标签查看效果
+      </p>
 
       {/* 书名号线 */}
       <div className="config-group">
@@ -177,7 +180,7 @@ function NumberSlider({ label, value, min, max, step = 1, onChange }: {
       <span className="w-16 text-xs text-ink/60">{label}</span>
       <input type="range" min={min} max={max} step={step} value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="flex-1 accent-vermilion h-1.5 cursor-pointer" />
+        className="flex-1 accent-vermilion h-3 cursor-pointer" />
       <span className="w-8 text-right text-xs text-ink/50">{value}</span>
     </div>
   );

@@ -10,9 +10,11 @@
 // ============================================================================
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  // 只在 POST/PUT 有 body 时加 Content-Type
+  const needsContentType = options?.body != null;
   const response = await fetch(url, {
     headers: {
-      "Content-Type": "application/json",
+      ...(needsContentType ? { "Content-Type": "application/json" } : {}),
       ...options?.headers,
     },
     ...options,
@@ -45,9 +47,7 @@ function put<T>(url: string, data: unknown): Promise<T> {
 }
 
 function del<T>(url: string): Promise<T> {
-  return request<T>(url, {
-    method: "DELETE",
-  });
+  return request<T>(url, { method: "DELETE" });
 }
 
 // ============================================================================
@@ -124,4 +124,23 @@ export const api = {
    * 删除项目
    */
   deleteProject: (id: string) => del<DeleteProjectResponse>(`/api/projects/${id}`),
+
+  /**
+   * 上传字体
+   */
+  uploadFont: async (file: File): Promise<{ filename: string; size: number; path: string }> => {
+    const form = new FormData();
+    form.append("file", file);
+    const response = await fetch("/api/fonts/upload", { method: "POST", body: form });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: "上传失败" }));
+      throw new Error(err.error || `HTTP ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * 获取字体列表
+   */
+  getFonts: () => get<{ fonts: { filename: string; size: number; uploadedAt: string; url: string }[] }>("/api/fonts"),
 };

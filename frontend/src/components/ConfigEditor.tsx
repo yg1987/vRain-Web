@@ -95,7 +95,7 @@ export default function ConfigEditor({ bookConfig, canvasConfig, onChange }: Pro
             </option>
           </select>
           <p className="mt-1 text-[10px] text-ink/40">
-            选择预设将自动替换下方画布参数
+            选择预设将自动替换右边画布参数
           </p>
         </div>
 
@@ -114,7 +114,7 @@ export default function ConfigEditor({ bookConfig, canvasConfig, onChange }: Pro
               简繁对照
             </label>
             <span className="text-xs text-amber-700/70">
-              正文简体→繁体 (替代 vrain_mr.pl)
+              简繁转换 (预览页查看效果)
             </span>
           </div>
         </div>

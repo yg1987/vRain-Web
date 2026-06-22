@@ -165,6 +165,7 @@ export interface BookConfig {
   fonts: FontEntry[];
   textFontColor: string;
   commentFontColor: string;
+  coverTitleFontFamily: string;
   coverTitleFontSize: number;
   coverTitleY: number;
   coverAuthorFontSize: number;

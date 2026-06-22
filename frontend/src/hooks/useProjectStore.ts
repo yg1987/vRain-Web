@@ -46,6 +46,7 @@ export const DEFAULT_BOOK_CONFIG: BookConfig = {
   commentFontFamily: "启基Combo",
   textFontColor: "black",
   commentFontColor: "black",
+  coverTitleFontFamily: "启基Combo",
   coverTitleFontSize: 120,
   coverTitleY: 200,
   coverAuthorFontSize: 60,
@@ -73,13 +74,13 @@ export const DEFAULT_BOOK_CONFIG: BookConfig = {
   commentNoPositionPunctuation: "",
   commentRotatedPunctuation: "",
   decorativeMarks: {
-    bookLine: { enabled: false, width: 2, color: "black" },
-    rectFrame: { enabled: false, borderType: 0, borderColor: "black", fillColor: "black" },
-    circleFrame: { enabled: false, borderType: 0, borderColor: "black", fillColor: "white" },
-    textZoom: { enabled: false, zoomFactor: 1.1 },
-    circleNote: { enabled: false, offset: { x: 0.25, y: 0.3 }, radius: 0.15, width: 6, color: "#874434" },
-    pointNote: { enabled: false, offset: { x: -0.25, y: 0 }, size: 1.2, color: "#874434" },
-    lineNote: { enabled: false, offset: { x: 0.4, y: -0.25 }, width: 7, color: "#874434" },
+    bookLine: { enabled: true, width: 2, color: "#000000" },
+    rectFrame: { enabled: true, borderType: 0, borderColor: "#874434", fillColor: "#000000" },
+    circleFrame: { enabled: true, borderType: 0, borderColor: "#874434", fillColor: "#ffffff" },
+    textZoom: { enabled: true, zoomFactor: 1.1 },
+    circleNote: { enabled: true, offset: { x: 0.25, y: 0.3 }, radius: 0.15, width: 6, color: "#874434" },
+    pointNote: { enabled: true, offset: { x: -0.25, y: 0 }, size: 1.2, color: "#874434" },
+    lineNote: { enabled: true, offset: { x: 0.4, y: -0.25 }, width: 7, color: "#874434" },
   },
   fontMetricAdjust: false,
   fallbackBold: false,
@@ -110,7 +111,7 @@ export const DEFAULT_CANVAS_CONFIG: CanvasConfig = {
 };
 
 export const DEFAULT_TEXT_LINES: string[][] = [
-  ["第一章 测试章节", "", "这是一段测试文本，用于预览竖排效果。"],
+  ["第一章 测试章节", "", "这是一段《测试文本》，用于展示七种装饰标记效果。", "〔圆角框〕标注〈圆圈〉效果，并使用（放大）字体。", "｛圈注｝标记和＜顿点＞标记各有不同效果。", "［行注］用于行间标注。", "", "以上七种标记在预览页可同时查看。"],
 ];
 
 // ============================================================================

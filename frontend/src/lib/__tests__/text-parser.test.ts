@@ -21,6 +21,7 @@ function makeConfig(partial: Partial<BookConfig>): BookConfig {
     commentFontFamily: "test.ttf",
     textFontColor: "black",
     commentFontColor: "black",
+    coverTitleFontFamily: "",
     coverTitleFontSize: 120,
     coverTitleY: 200,
     coverAuthorFontSize: 60,
