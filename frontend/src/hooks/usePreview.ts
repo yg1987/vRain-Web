@@ -30,10 +30,11 @@ export interface UsePreviewOptions {
   bookConfig: BookConfig;
   canvasConfig: CanvasConfig;
   textLines: string[][];  // 每个文本文件的行数组
+  chapterTitles: string[]; // 每个文件的章节标题
 }
 
 export function usePreview(options: UsePreviewOptions) {
-  const { bookConfig, canvasConfig, textLines } = options;
+  const { bookConfig, canvasConfig, textLines, chapterTitles } = options;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -64,18 +65,25 @@ export function usePreview(options: UsePreviewOptions) {
       const allCommentary: CommentaryEntry[] = [];
       const allDecorationRanges: DecorationRange[] = [];
       const titles: string[] = [];
+      /** 每个文件在 allChars 中的起始字符索引 */
+      const fileCharStart: number[] = [];
 
       for (let fi = 0; fi < textLines.length; fi++) {
         const lines = textLines[fi];
+        fileCharStart.push(allChars.length); // 记录当前文件起始位置
         const parsed = await parseTextFile(`${String(fi).padStart(2, "0")}.txt`, lines, bookConfig);
 
-        // 收集标题
-        if (parsed.paragraphs.length > 0) {
-          const postfix = bookConfig.titlePostfix.replace("X", String(fi + 1));
-          // 标题取自第一段但需去除装饰标记符
-          const { cleanText } = extractDecorationRanges(parsed.paragraphs[0].text, bookConfig, 0);
-          titles.push(cleanText + postfix);
+        // 收集标题 — 使用用户设置的章节标题 + 后缀
+        const chapterTitle = chapterTitles[fi] || "";
+        const postfix = bookConfig.titlePostfix.replace("X", String(fi + 1));
+        // 序(0) → 后缀变"序"，附录(1) → 后缀变"附"，章节(2+) → 用回目数字
+        let titlePostfix = postfix;
+        if (fi === 0 && chapterTitle) {
+          titlePostfix = "序";
+        } else if (fi === 1 && chapterTitle) {
+          titlePostfix = "附";
         }
+        titles.push(chapterTitle || titlePostfix);
 
         // 拼接字符（同时剥离装饰标记符，记录装饰范围）
         for (const para of parsed.paragraphs) {
@@ -109,18 +117,25 @@ export function usePreview(options: UsePreviewOptions) {
         positions.commentPositions,
       );
 
-      // 4. 构建 Page IR
-      let pages: Page[] = paginated.pages.map((pg, idx) => ({
-        pageNumber: idx + 1,
-        canvas: { ...canvasConfig },
-        title: titles[idx] || bookConfig.title,
-        characters: pg.characters,
-        commentaries: pg.commentaries,
-        decorations: pg.decorations,
-        marks: pg.marks,
-        outlineTitle: titles[idx],
-        outlinePage: idx + 2, // 封面 + 内容偏移
-      }));
+      // 4. 构建 Page IR（同时为每页标记所属文件索引）
+      /** 累计字符数，用于判断每页属于哪个文件 */
+      let cumChars = 0;
+      let pages: Page[] = paginated.pages.map((pg, idx) => {
+        const pageFileIndex = findFileIndex(cumChars, cumChars + pg.characters.length, fileCharStart);
+        cumChars += pg.characters.length;
+        return {
+          pageNumber: idx + 1,
+          canvas: { ...canvasConfig },
+          title: titles[idx] || bookConfig.title,
+          characters: pg.characters,
+          commentaries: pg.commentaries,
+          decorations: pg.decorations,
+          marks: pg.marks,
+          outlineTitle: titles[idx],
+          outlinePage: idx + 2, // 封面 + 内容偏移
+          fileIndex: pageFileIndex,
+        };
+      });
 
       // 5. 装饰标记 → 像素坐标 → 分配到各页
       if (allDecorationRanges.length > 0) {
@@ -134,7 +149,7 @@ export function usePreview(options: UsePreviewOptions) {
       setState((s) => ({ ...s, error: String(err), isProcessing: false }));
       return [];
     }
-  }, [bookConfig, canvasConfig, textLines]);
+  }, [bookConfig, canvasConfig, textLines, chapterTitles]);
 
   // 渲染到 Canvas (带防抖)
   const renderToCanvas = useCallback(
@@ -229,4 +244,19 @@ export function usePreview(options: UsePreviewOptions) {
     toggleCover,
     setZoom,
   };
+}
+
+/**
+ * 根据字符索引范围定位所属文件
+ * @param charStart 该页第一个字符在 allChars 中的索引
+ * @param charEnd   该页最后一个字符之后
+ * @param boundaries 各文件在 allChars 中的起始索引
+ */
+function findFileIndex(charStart: number, _charEnd: number, boundaries: number[]): number {
+  // boundaries[i] = 文件 i 的起始字符索引，boundaries[i+1] = 文件 i+1 的起始字符索引
+  // 找到最大的 i 使得 boundaries[i] <= charStart
+  for (let i = boundaries.length - 1; i >= 0; i--) {
+    if (boundaries[i] <= charStart) return i;
+  }
+  return 0;
 }

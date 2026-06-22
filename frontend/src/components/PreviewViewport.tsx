@@ -108,7 +108,7 @@ export default function PreviewViewport({
       </div>
 
       {/* Canvas */}
-      <div className="flex justify-center overflow-auto" style={{ maxHeight: "60vh" }}>
+      <div className="flex flex-1 justify-center overflow-auto">
         <canvas
           ref={canvasRef}
           className="preview-viewport max-w-full"

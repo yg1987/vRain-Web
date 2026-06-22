@@ -2,7 +2,7 @@
  * 项目详情页 — 主工作区
  *
  * 顶部标签页（4个）：
- *   配置 → 书籍配置 + 画布配置 + 字体选择 + 上传字体 + 导入/导出
+ *   配置 → 书籍配置 + 画布配置 + 字体选择 + 上传字体
  *   文本 → 源文本编辑
  *   预览 → Canvas 实时预览
  *   导出 → PDF 导出
@@ -21,7 +21,6 @@ import TextEditor from "./TextEditor";
 import PreviewViewport from "./PreviewViewport";
 import PdfExportPanel from "./PdfExportPanel";
 import FontSelector from "./FontSelector";
-import ImportExportPanel from "./ImportExportPanel";
 import { usePreview } from "../hooks/usePreview";
 import { api } from "../lib/api";
 import { DEFAULT_BOOK_CONFIG, DEFAULT_CANVAS_CONFIG, DEFAULT_TEXT_LINES } from "../hooks/useProjectStore";
@@ -34,10 +33,12 @@ export default function ProjectDetail() {
   const [bookConfig, setBookConfig] = useState<BookConfig>(DEFAULT_BOOK_CONFIG);
   const [canvasConfig, setCanvasConfig] = useState<CanvasConfig>(DEFAULT_CANVAS_CONFIG);
   const [textLines, setTextLines] = useState<string[][]>(DEFAULT_TEXT_LINES.map((arr) => [...arr]));
-  const [selectedTextFile, setSelectedTextFile] = useState<string | null>(null);
+  const [chapterTitles, setChapterTitles] = useState<string[]>(["序", "附录", "第一回"]);
   const [loading, setLoading] = useState(true);
+  const [saveStatus, setSaveStatus] = useState<"" | "saving" | "saved" | "error">("");
 
   const loadedRef = useRef(false);
+  const saveStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ========== 加载项目数据 ==========
   useEffect(() => {
@@ -51,6 +52,7 @@ export default function ProjectDetail() {
         setBookConfig(bConfig);
         setCanvasConfig(project.canvasConfig as CanvasConfig);
         setTextLines(project.textLines.map((arr) => [...arr]));
+        setChapterTitles(project.chapterTitles || ["序", "附录", "第一回"]);
         // 加载字体到浏览器供 canvas 渲染
         loadFontsToBrowser(bConfig.fonts);
       } catch (err) {
@@ -66,37 +68,48 @@ export default function ProjectDetail() {
   }, [projectId]);
 
   // ========== 自动持久化 ==========
-  // 配置/文本变化后防抖保存到后端 SQLite
+  // 配置/文本变化后防抖保存到后端 SQLite，更新保存状态提示
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const triggerSave = useCallback(() => {
     if (!projectId) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setSaveStatus("saving");
     saveTimerRef.current = setTimeout(() => {
-      api.updateProject(projectId, { bookConfig, canvasConfig, textLines }).catch((err) => {
-        console.error("保存项目失败:", err);
-      });
+      api
+        .updateProject(projectId, { bookConfig, canvasConfig, textLines, chapterTitles })
+        .then(() => {
+          setSaveStatus("saved");
+          // 2 秒后自动清除
+          if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
+          saveStatusTimerRef.current = setTimeout(() => setSaveStatus(""), 2000);
+        })
+        .catch((err) => {
+          console.error("保存项目失败:", err);
+          setSaveStatus("error");
+        });
     }, 500);
-  }, [projectId, bookConfig, canvasConfig, textLines]);
+  }, [projectId, bookConfig, canvasConfig, textLines, chapterTitles]);
 
   useEffect(() => {
     if (!loadedRef.current) return; // 首次加载不触发保存
     triggerSave();
-  }, [bookConfig, canvasConfig, textLines, triggerSave]);
+  }, [bookConfig, canvasConfig, textLines, chapterTitles, triggerSave]);
 
-  // ========== 加载字体到浏览器 ==========
+  // ========== 加载字体到浏览器（通过 @font-face CSS，供 Canvas 预览渲染） ==========
   const loadFontsToBrowser = useCallback(async (fonts: FontEntry[]) => {
-    for (const font of fonts) {
-      // 跳过已加载的字体
-      if (document.fonts.check(`12px "${font.name}"`)) continue;
-      try {
-        const fontUrl = `/api/fonts/file/${font.filename}`;
-        const fontFace = new FontFace(font.name, `url(${fontUrl})`);
-        const loaded = await fontFace.load();
-        document.fonts.add(loaded);
-      } catch {
-        // 字体文件可能不存在，忽略
-      }
-    }
+    const existing = document.getElementById("vrain-font-faces");
+    if (existing) return; // 已有注入，跳过
+    const css = fonts
+      .filter((f) => f.filename)
+      .map((f) => `@font-face{font-family:"${f.name}";src:url(/api/fonts/file/${f.filename})}`)
+      .join("");
+    if (!css) return;
+    const style = document.createElement("style");
+    style.id = "vrain-font-faces";
+    style.textContent = css;
+    document.head.appendChild(style);
+    // 等待字体加载完成，供 Canvas 渲染使用
+    await document.fonts.ready;
   }, []);
 
   // 预览 Hook — 配置+文本变更自动重建预览
@@ -104,6 +117,7 @@ export default function ProjectDetail() {
     bookConfig,
     canvasConfig,
     textLines,
+    chapterTitles,
   });
 
   // ========== 配置变更回调 ==========
@@ -159,17 +173,6 @@ export default function ProjectDetail() {
     preview.toggleCover();
   }, [preview]);
 
-  // ========== 导入回调 ==========
-  const handleImportComplete = useCallback(
-    (_name: string, book: BookConfig, canvas: CanvasConfig, text: string[][]) => {
-      setBookConfig(book);
-      setCanvasConfig(canvas);
-      setTextLines(text);
-      setActiveTab("preview");
-    },
-    [],
-  );
-
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -194,7 +197,7 @@ export default function ProjectDetail() {
 
       {/* 主内容区 — 顶部4个标签页 */}
       <main className="flex flex-1 flex-col overflow-hidden">
-        <nav className="flex border-b border-ink/10 bg-white/30">
+        <nav className="flex items-center border-b border-ink/10 bg-white/30">
           {[
             { key: "config" as const, label: "配置" },
             { key: "text" as const, label: "文本" },
@@ -213,6 +216,30 @@ export default function ProjectDetail() {
               {tab.label}
             </button>
           ))}
+
+          {/* 保存状态提示 */}
+          {saveStatus && (
+            <div className="mr-4 flex shrink-0 items-center gap-1.5 text-xs">
+              {saveStatus === "saving" && (
+                <>
+                  <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-amber-500" />
+                  <span className="text-ink/50">保存中...</span>
+                </>
+              )}
+              {saveStatus === "saved" && (
+                <>
+                  <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
+                  <span className="text-green-600">已保存</span>
+                </>
+              )}
+              {saveStatus === "error" && (
+                <>
+                  <span className="inline-block h-2 w-2 rounded-full bg-red-500" />
+                  <span className="text-red-600">保存失败</span>
+                </>
+              )}
+            </div>
+          )}
         </nav>
 
         <div className="flex-1 overflow-auto p-6">
@@ -244,12 +271,6 @@ export default function ProjectDetail() {
                 onFontUploaded={onFontUploaded}
                 onFontAdd={onFontAdd}
               />
-              <ImportExportPanel
-                bookConfig={bookConfig}
-                canvasConfig={canvasConfig}
-                textLines={textLines}
-                onImport={handleImportComplete}
-              />
             </div>
           )}
 
@@ -258,7 +279,8 @@ export default function ProjectDetail() {
             <TextEditor
               textLines={textLines}
               setTextLines={setTextLines}
-              selectedFile={selectedTextFile}
+              chapterTitles={chapterTitles}
+              setChapterTitles={setChapterTitles}
             />
           )}
 
@@ -284,6 +306,7 @@ export default function ProjectDetail() {
               canvasConfig={canvasConfig}
               pages={preview.state.pages}
               totalPages={preview.state.totalPages}
+              textLines={textLines}
             />
           )}
         </div>

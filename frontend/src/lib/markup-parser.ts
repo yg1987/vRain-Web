@@ -270,6 +270,7 @@ export function resolveDecorationRanges(
       bounds: { x1: minX, y1: minY, x2: maxX, y2: maxY },
       strokeWidth: range.strokeWidth,
       color: range.color,
+      charPositions: positions,
     });
   }
 

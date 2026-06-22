@@ -18,6 +18,8 @@ export interface PdfExportOptions {
   testPages?: number;
   compress?: boolean;
   includeCover?: boolean;
+  includePreface?: boolean;
+  includeAppendix?: boolean;
   fileFrom?: number;
   fileTo?: number;
 }

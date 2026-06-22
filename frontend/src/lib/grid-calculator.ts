@@ -120,8 +120,8 @@ export function generatePositionGrid(
   const commentPositions: Point[] = [];
 
   if (!isMultirows) {
-    // 标准模式: 右向左逐列
-    for (let col = 0; col < leafCol; col++) {
+    // 标准模式: 右向左逐列 (古籍竖排传统)
+    for (let col = leafCol - 1; col >= 0; col--) {
       for (let row = 0; row < rowNum; row++) {
         const pt = computeStandardPosition(canvas, col, row, colWidth, rowHeight, rowNum, rowDeltaY);
         const commentPt = computeCommentPosition(canvas, col, row, colWidth, rowHeight, rowNum);
@@ -130,10 +130,10 @@ export function generatePositionGrid(
       }
     }
   } else {
-    // 多栏模式: 按水平条带划分
+    // 多栏模式: 按水平条带划分，每栏内右向左
     const rowsPerBand = rowNum / multirowsNum;
     for (let band = 0; band < multirowsNum; band++) {
-      for (let col = 0; col < leafCol; col++) {
+      for (let col = leafCol - 1; col >= 0; col--) {
         for (let rowInBand = 0; rowInBand < rowsPerBand; rowInBand++) {
           const globalRow = band * rowsPerBand + rowInBand;
           const pt = computeMultirowPosition(canvas, col, globalRow, colWidth, rowNum, rowHeight, rowDeltaY, band, rowInBand);
@@ -149,7 +149,12 @@ export function generatePositionGrid(
 
 /**
  * 标准模式: 计算单个字符位置
- * 左半列使用左边距公式, 右半列额外偏移 leaf_center_width
+ * Formula from vrain.pl lines 306-312:
+ *   cw = (canvas_width - ml - mr - leafCenterWidth) / leafCol
+ *   i is 1-indexed from RIGHT (i=1 = rightmost column)
+ *   Right half (i <= leafCol/2):  pos_x = canvas_width - mr - cw * i
+ *   Left half  (i > leafCol/2):   pos_x = canvas_width - mr - cw * i - leafCenterWidth
+ *   Text is centered: x = pos_x - cw/2 (pos_x is left edge of column, center = left + width/2)
  */
 function computeStandardPosition(
   canvas: CanvasConfig,
@@ -160,18 +165,17 @@ function computeStandardPosition(
   rowNum: number,
   rowDeltaY: number
 ): Point {
-  const isLeftHalf = colIndex < Math.floor(canvas.leafCol / 2);
+  // colIndex 0 = first position = rightmost column = vrain.pl i=1
+  const i = colIndex + 1;
+  const halfCol = canvas.leafCol / 2;
 
   let x: number;
-  if (isLeftHalf) {
-    x = canvas.width - canvas.margins.right - colWidth * (canvas.leafCol - colIndex) + colWidth / 2;
+  if (i <= halfCol) {
+    // Right half: pos_x is left edge of column, center = pos_x + cw/2
+    x = canvas.width - canvas.margins.right - colWidth * i + colWidth / 2;
   } else {
-    x =
-      canvas.width -
-      canvas.margins.right -
-      colWidth * (canvas.leafCol - colIndex) +
-      colWidth / 2 -
-      canvas.leafCenterWidth;
+    // Left half
+    x = canvas.width - canvas.margins.right - colWidth * i - canvas.leafCenterWidth + colWidth / 2;
   }
 
   // 从顶部向下排列
@@ -187,6 +191,7 @@ function computeStandardPosition(
 
 /**
  * 多栏模式: 计算字符位置
+ * Uses same vrain.pl column formula as computeStandardPosition
  */
 function computeMultirowPosition(
   canvas: CanvasConfig,
@@ -199,18 +204,14 @@ function computeMultirowPosition(
   bandIndex: number,
   rowInBand: number
 ): Point {
-  const isLeftHalf = colIndex < Math.floor(canvas.leafCol / 2);
+  const i = colIndex + 1;
+  const halfCol = canvas.leafCol / 2;
 
   let x: number;
-  if (isLeftHalf) {
-    x = canvas.width - canvas.margins.right - colWidth * (canvas.leafCol - colIndex) + colWidth / 2;
+  if (i <= halfCol) {
+    x = canvas.width - canvas.margins.right - colWidth * i + colWidth / 2;
   } else {
-    x =
-      canvas.width -
-      canvas.margins.right -
-      colWidth * (canvas.leafCol - colIndex) +
-      colWidth / 2 -
-      canvas.leafCenterWidth;
+    x = canvas.width - canvas.margins.right - colWidth * i - canvas.leafCenterWidth + colWidth / 2;
   }
 
   // 多栏模式下按水平条带计算 Y 坐标
@@ -232,6 +233,7 @@ function computeMultirowPosition(
 
 /**
  * 计算夹批位置 (半字符宽, 紧邻正文右侧)
+ * Comment x = column left edge (same vrain.pl formula without colWidth/2 offset)
  */
 function computeCommentPosition(
   canvas: CanvasConfig,
@@ -241,17 +243,14 @@ function computeCommentPosition(
   rowNum: number,
   rowHeight: number
 ): Point {
-  const isLeftHalf = colIndex < Math.floor(canvas.leafCol / 2);
+  const i = colIndex + 1;
+  const halfCol = canvas.leafCol / 2;
 
   let x: number;
-  if (isLeftHalf) {
-    x = canvas.width - canvas.margins.right - colWidth * (canvas.leafCol - colIndex);
+  if (i <= halfCol) {
+    x = canvas.width - canvas.margins.right - colWidth * i;
   } else {
-    x =
-      canvas.width -
-      canvas.margins.right -
-      colWidth * (canvas.leafCol - colIndex) -
-      canvas.leafCenterWidth;
+    x = canvas.width - canvas.margins.right - colWidth * i - canvas.leafCenterWidth;
   }
 
   const y = canvas.margins.top + rowHeight * rowIndex + rowHeight / 2;
@@ -285,6 +284,7 @@ export function positionsToPages(
       commentaries: [],
       decorations: [],
       marks: [],
+      fileIndex: 0,
     });
 
     pageCount++;

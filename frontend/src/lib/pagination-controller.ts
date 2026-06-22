@@ -110,7 +110,7 @@ export function paginate(
       if (isNonPositionPunctuation) {
         // 保留在当前页
         const charData = characters[charIndex];
-        const pos = textPositions[charIndex] || { x: 0, y: 0 };
+        const pos = textPositions[pcnt] || { x: 0, y: 0 };
         currentPage.characters.push({
           x: pos.x,
           y: pos.y,
@@ -139,7 +139,7 @@ export function paginate(
     if (isCommentaryChar) {
       // 批注字符不占用正文位置 (pcnt 不变)
       if (commentForIndex.char) {
-        const cpos = commentPositions[charIndex] || textPositions[charIndex] || { x: 0, y: 0 };
+        const cpos = commentPositions[pcnt] || textPositions[pcnt] || { x: 0, y: 0 };
         currentPage.commentaries.push({
           x: cpos.x,
           y: cpos.y,
@@ -153,7 +153,7 @@ export function paginate(
     } else {
       // 普通字符
       const fontSize = config.fonts[0]?.textPointSize ?? 60;
-      const pos = textPositions[charIndex] || { x: 0, y: 0 };
+      const pos = textPositions[pcnt] || { x: 0, y: 0 };
 
       currentPage.characters.push({
         x: pos.x,
@@ -202,6 +202,9 @@ function createNewPage(pageNum: number, canvas?: CanvasConfig): Page {
     commentaries: [],
     decorations: [],
     marks: [],
+    outlineTitle: undefined,
+    outlinePage: undefined,
+    fileIndex: 0,
   };
 }
 

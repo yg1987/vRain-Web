@@ -320,14 +320,33 @@ export function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** 按文件范围 + 测试模式筛选页面 */
+/**
+ * 按文件范围 + 序/附录 + 测试模式筛选页面
+ *
+ * fileFrom/fileTo 为章节编号（1-based），序=fileIndex 0，附录=fileIndex 1
+ * includePreface/includeAppendix 控制是否包含特殊文件
+ */
 export function filterPagesByRange(
   pages: Page[],
   fileFrom: number,
   fileTo: number,
   testPages?: number,
+  includePreface?: boolean,
+  includeAppendix?: boolean,
 ): Page[] {
-  let sliced = pages.slice(fileFrom - 1, fileTo);
-  if (testPages && testPages > 0) sliced = sliced.slice(0, testPages);
-  return sliced;
+  let filtered = pages.filter((p) => {
+    // 序 (fileIndex 0) — 根据 includePreface 决定
+    if (p.fileIndex === 0) return includePreface !== false;
+    // 附录 (fileIndex 1) — 根据 includeAppendix 决定
+    if (p.fileIndex === 1) return includeAppendix !== false;
+    // 章节 (fileIndex 2+): 章节号 = fileIndex - 1
+    const chapterNum = p.fileIndex - 1;
+    return chapterNum >= fileFrom && chapterNum <= fileTo;
+  });
+
+  if (testPages && testPages > 0) {
+    filtered = filtered.slice(0, testPages);
+  }
+
+  return filtered;
 }

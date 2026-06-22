@@ -56,6 +56,8 @@ export interface PdfGenerationOptions {
   testPages?: number;
   compress?: boolean;
   includeCover?: boolean;
+  includePreface?: boolean;
+  includeAppendix?: boolean;
   fileFrom?: number;
   fileTo?: number;
   fileName?: string;
@@ -80,13 +82,15 @@ export async function generatePdf(
     testPages,
     compress,
     includeCover,
+    includePreface,
+    includeAppendix,
     fileFrom = 1,
     fileTo,
   } = options;
 
   // 1. 筛选页面
   const toPage = fileTo !== undefined ? fileTo : pages.length;
-  const filteredPages = filterPagesByRange(pages, fileFrom, toPage, testPages);
+  const filteredPages = filterPagesByRange(pages, fileFrom, toPage, testPages, includePreface, includeAppendix);
 
   if (filteredPages.length === 0) {
     throw new Error("没有可渲染的页面");

@@ -9,7 +9,7 @@
  * 封面作者字体沿用正文。
  * 预览文字：共享一个输入框，三行各自显示该字在对应字体下的效果。
  */
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import type { FontEntry } from "../types/layout";
 import { api } from "../lib/api";
 
@@ -46,32 +46,17 @@ export default function FontSelector({
   onFontAdd,
 }: Props) {
   const [previewText, setPreviewText] = useState("國");
-  const [loadedFonts, setLoadedFonts] = useState<Set<string>>(new Set());
+  const [uploadStatus, setUploadStatus] = useState<"" | "success" | "duplicate" | "error">("");
+  const [uploadMessage, setUploadMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ========== 字体加载到 document.fonts ==========
-  useEffect(() => {
-    let cancelled = false;
-    const loadAll = async () => {
-      for (const font of fonts) {
-        if (!font.filename) continue;
-        if (document.fonts.check(`16px "${font.name}"`)) {
-          if (!cancelled) setLoadedFonts((prev) => new Set(prev).add(font.name));
-          continue;
-        }
-        try {
-          const url = `/api/fonts/file/${font.filename}`;
-          const resp = await fetch(url, { method: "HEAD" });
-          if (!resp.ok) continue;
-          const face = new FontFace(font.name, `url(${url})`);
-          const loaded = await face.load();
-          document.fonts.add(loaded);
-          if (!cancelled) setLoadedFonts((prev) => new Set(prev).add(font.name));
-        } catch {}
-      }
-    };
-    loadAll();
-    return () => { cancelled = true; };
+  // ========== CSS @font-face 注入（比 JS FontFace API 更可靠） ==========
+  const fontFaceStyle = useMemo(() => {
+    return fonts
+      .filter((f) => f.filename)
+      .map((f) => `@font-face{font-family:"${f.name}";src:url(/api/fonts/file/${f.filename})}`)
+      .join("");
   }, [fonts]);
 
   // ========== 正文 ==========
@@ -105,6 +90,14 @@ export default function FontSelector({
   );
 
   // ========== 上传字体 ==========
+  const clearUploadStatus = useCallback(() => {
+    if (uploadTimerRef.current) clearTimeout(uploadTimerRef.current);
+    uploadTimerRef.current = setTimeout(() => {
+      setUploadStatus("");
+      setUploadMessage("");
+    }, 3000);
+  }, []);
+
   const handleFileUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
@@ -112,42 +105,49 @@ export default function FontSelector({
       const file = files[0];
       const ext = file.name.split(".").pop()?.toLowerCase();
       if (!["ttf", "otf", "woff", "woff2"].includes(ext || "")) {
-        alert("仅支持 .ttf / .otf / .woff 字体文件");
+        setUploadStatus("error");
+        setUploadMessage("仅支持 .ttf / .otf / .woff 字体文件");
+        clearUploadStatus();
+        return;
+      }
+      const fontName = file.name.replace(/\.[^.]+$/, "");
+      // 检查是否已存在
+      if (fonts.some((f) => f.name === fontName)) {
+        setUploadStatus("duplicate");
+        setUploadMessage(`"${fontName}" 已存在，无需重复上传`);
+        clearUploadStatus();
+        if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
       try {
         const result = await api.uploadFont(file);
-        const fontName = file.name.replace(/\.[^.]+$/, "");
-        // 加载到浏览器供预览和 canvas 渲染
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (!event.target?.result) return;
-          const fontFace = new FontFace(fontName, event.target.result as ArrayBuffer);
-          fontFace.load().then((f) => { document.fonts.add(f); }).catch(() => {});
-        };
-        reader.readAsArrayBuffer(file);
         onFontAdd?.({ name: fontName, filename: result.filename, textPointSize: 60, commentPointSize: 45, rotate: 0 });
         onFontUploaded?.();
+        setUploadStatus("success");
+        setUploadMessage(`"${fontName}" 上传成功`);
+        clearUploadStatus();
       } catch (err) {
-        alert(err instanceof Error ? err.message : "字体上传失败");
+        setUploadStatus("error");
+        setUploadMessage(err instanceof Error ? err.message : "字体上传失败");
+        clearUploadStatus();
       }
       if (fileInputRef.current) fileInputRef.current.value = "";
     },
-    [onFontAdd, onFontUploaded],
+    [fonts, onFontAdd, onFontUploaded, clearUploadStatus],
   );
 
   // ========== 下拉选项 ==========
   const fontOptions = fonts.length === 0
     ? <option value="">（无可用字体）</option>
-    : fonts.map((f) => {
-        const missing = f.filename && !loadedFonts.has(f.name);
-        return <option key={f.name} value={f.name}>{f.name}{missing ? " ⚠️" : ""}</option>;
-      });
+    : fonts.map((f) => <option key={f.name} value={f.name}>{f.name}</option>);
 
   // ========== 渲染 ==========
   return (
     <div className="config-panel">
       <div className="config-panel-title">🔤 字体选择器</div>
+
+      {/* CSS @font-face 声明 — 浏览器原生加载，最可靠的方式 */}
+      {fontFaceStyle && <style>{fontFaceStyle}</style>}
 
       {/* 一行：label | 字体下拉 | 字号 | 预览 */}
       {([
@@ -159,29 +159,29 @@ export default function FontSelector({
           {/* 标签 */}
           <span className="w-16 shrink-0 text-sm font-medium text-ink/70">{row.label}</span>
 
-          {/* 字体下拉 — 固定宽度 */}
+          {/* 字体下拉 */}
           <select
-            className="w-40 shrink-0 rounded border border-ink/20 bg-white px-2 py-1.5 text-sm focus:border-vermilion focus:outline-none"
+            className="flex-1 min-w-0 rounded border border-ink/20 bg-white px-2 py-1.5 text-sm focus:border-vermilion focus:outline-none"
             value={row.font}
             onChange={(e) => row.onFont(e.target.value)}
           >
             {fontOptions}
           </select>
 
-          {/* 字号 — 固定宽度 */}
+          {/* 字号 */}
           <input
             type="number"
-            className="w-16 shrink-0 rounded border border-ink/20 bg-white px-2 py-1.5 text-center text-sm focus:border-vermilion focus:outline-none"
+            className="w-20 shrink-0 rounded border border-ink/20 bg-white px-2 py-1.5 text-center text-sm focus:border-vermilion focus:outline-none"
             min={12}
             max={200}
             value={row.size}
             onChange={(e) => row.onSize(parseInt(e.target.value) || row.size)}
           />
 
-          {/* 预览 — 剩余空间 */}
+          {/* 预览 — 直接应用 font-family，CSS @font-face 确保字体可用 */}
           <div
-            className="flex-1 min-w-0 rounded border border-ink/10 bg-white/60 px-3 py-1.5 text-2xl text-ink"
-            style={{ fontFamily: loadedFonts.has(row.font) ? `"${row.font}", serif` : "serif" }}
+            className="flex-1 min-w-0 overflow-hidden rounded border border-ink/10 bg-white/60 px-3 py-1.5 text-2xl text-ink"
+            style={{ fontFamily: `"${row.font}", serif` }}
           >
             {previewText || "字"}
           </div>
@@ -190,9 +190,6 @@ export default function FontSelector({
 
       <p className="mb-3 text-[11px] text-ink/40">
         封面作者字体沿用正文，字号在书籍配置中调整
-        {fonts.some((f) => f.filename && !loadedFonts.has(f.name)) && (
-          <span className="ml-2 text-amber-600">⚠️ 部分字体文件缺失，预览可能不准确</span>
-        )}
       </p>
 
       {/* 底部：共享预览输入 + 上传字体 */}
@@ -210,6 +207,20 @@ export default function FontSelector({
         <button type="button" className="btn-ancient text-xs" onClick={() => fileInputRef.current?.click()}>
           ＋ 上传字体
         </button>
+
+        {/* 上传状态提示 */}
+        {uploadStatus && (
+          <div className={`ml-auto flex items-center gap-1.5 rounded px-2 py-1 text-xs ${
+            uploadStatus === "success" ? "bg-green-50 text-green-700" :
+            uploadStatus === "duplicate" ? "bg-amber-50 text-amber-700" :
+            "bg-red-50 text-red-700"
+          }`}>
+            {uploadStatus === "success" && <span>✓</span>}
+            {uploadStatus === "duplicate" && <span>ⓘ</span>}
+            {uploadStatus === "error" && <span>✕</span>}
+            {uploadMessage}
+          </div>
+        )}
       </div>
     </div>
   );

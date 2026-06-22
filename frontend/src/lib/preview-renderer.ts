@@ -193,13 +193,17 @@ function drawBorders(ctx: CanvasRenderingContext2D, canvas: CanvasConfig) {
     ctx.stroke();
   }
 
-  // 分栏线
+  // 分栏线 (column separator lines)
+  // Formula from vintage.pl: x = ml + wd + clw * cid
+  //   where wd = (cid > cln/2) ? (lcw - clw) : 0
   const usableWidth = canvas.width - margins.left - margins.right - leafCenterWidth;
   const colWidth = usableWidth / leafCol;
-  ctx.strokeStyle = "#e0e0e0";
-  ctx.lineWidth = 0.5;
-  for (let i = 0; i <= leafCol; i++) {
-    const x = margins.left + (i <= leafCol / 2 ? i * colWidth : i * colWidth + leafCenterWidth);
+  const color = innerBorder.color || "black";
+  ctx.strokeStyle = color;
+  ctx.lineWidth = innerBorder.width || 1;
+  for (let cid = 1; cid <= leafCol; cid++) {
+    const wd = cid > leafCol / 2 ? leafCenterWidth - colWidth : 0;
+    const x = margins.left + wd + colWidth * cid;
     ctx.beginPath();
     ctx.moveTo(x, margins.top);
     ctx.lineTo(x, canvas.height - margins.bottom);
@@ -288,9 +292,9 @@ function drawVerticalText(
 function drawCharacter(ctx: CanvasRenderingContext2D, char: import("../types/layout").Character) {
   ctx.save();
   ctx.fillStyle = char.color || "black";
-  ctx.font = `${char.fontSize}px serif`;
+  ctx.font = `${char.fontSize}px "${char.fontFamily}", serif`;
   ctx.textAlign = "center";
-  ctx.textBaseline = "top";
+  ctx.textBaseline = "middle";
 
   if (char.rotation) {
     ctx.translate(char.x, char.y);
@@ -340,37 +344,72 @@ function drawDecoration(ctx: CanvasRenderingContext2D, dec: import("../types/lay
       drawWavyLine(ctx, x1, y1, x2, y2, dec.strokeWidth);
       break;
     case "circleNote":
-      // 圈注小圆
-      ctx.beginPath();
-      ctx.arc(x1, y1, dec.strokeWidth * 2, 0, Math.PI * 2);
-      ctx.stroke();
+      // 圈注 — 逐字绘制小圆
+      if (dec.charPositions && dec.charPositions.length > 0) {
+        const r = dec.strokeWidth * 2;
+        for (const cp of dec.charPositions) {
+          ctx.beginPath();
+          ctx.arc(cp.x, cp.y, r, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      } else {
+        ctx.beginPath();
+        ctx.arc(x1, y1, dec.strokeWidth * 2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       break;
     case "lineNote":
-      // 行注竖线
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
+      // 行注 — 逐字绘制竖线
+      if (dec.charPositions && dec.charPositions.length > 0) {
+        for (const cp of dec.charPositions) {
+          const halfH = (dec.strokeWidth || 2) * 6;
+          ctx.beginPath();
+          ctx.moveTo(cp.x, cp.y - halfH);
+          ctx.lineTo(cp.x, cp.y + halfH);
+          ctx.stroke();
+        }
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
       break;
     case "pointNote":
-      // 顿点注 (、)
+      // 顿点注 (、) — 逐字绘制
       ctx.fillStyle = dec.color || "black";
       ctx.font = `${dec.strokeWidth * 4}px serif`;
       ctx.textAlign = "center";
-      ctx.fillText("、", x1, y1);
+      ctx.textBaseline = "middle";
+      if (dec.charPositions && dec.charPositions.length > 0) {
+        for (const cp of dec.charPositions) {
+          ctx.fillText("、", cp.x, cp.y);
+        }
+      } else {
+        ctx.fillText("、", x1, y1);
+      }
       break;
     case "rectFrame":
       // 圆角矩形框
       ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
       break;
     case "circleFrame":
-      // 圆圈
-      const radius = Math.max(x2 - x1, y2 - y1) / 2;
-      const cx = (x1 + x2) / 2;
-      const cy = (y1 + y2) / 2;
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-      ctx.stroke();
+      // 圆圈 — 逐字绘制
+      if (dec.charPositions && dec.charPositions.length > 0) {
+        for (const cp of dec.charPositions) {
+          const r = (dec.strokeWidth || 2) * 3;
+          ctx.beginPath();
+          ctx.arc(cp.x, cp.y, r, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      } else {
+        const radius = Math.max(x2 - x1, y2 - y1) / 2;
+        const cx = (x1 + x2) / 2;
+        const cy = (y1 + y2) / 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       break;
   }
 
@@ -402,7 +441,13 @@ function drawWavyLine(
     const len = Math.sqrt(dx * dx + dy * dy);
     const nx = -dy / len;
     const ny = dx / len;
-    ctx.moveTo(baseX + nx * waveOffset, baseY + ny * waveOffset);
+    const px = baseX + nx * waveOffset;
+    const py = baseY + ny * waveOffset;
+    if (i === 0) {
+      ctx.moveTo(px, py);
+    } else {
+      ctx.lineTo(px, py);
+    }
   }
   ctx.stroke();
 }

@@ -65,6 +65,8 @@ app.post("/api/render/pdf", async (request, reply) => {
       testPages?: number;
       compress?: boolean;
       includeCover?: boolean;
+      includePreface?: boolean;
+      includeAppendix?: boolean;
       fileFrom?: number;
       fileTo?: number;
     };
@@ -76,6 +78,8 @@ app.post("/api/render/pdf", async (request, reply) => {
       testPages: body.testPages,
       compress: body.compress,
       includeCover: body.includeCover ?? true,
+      includePreface: body.includePreface,
+      includeAppendix: body.includeAppendix,
       fileFrom: body.fileFrom,
       fileTo: body.fileTo,
       fileName: body.bookConfig.title,

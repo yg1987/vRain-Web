@@ -179,6 +179,7 @@ describe("resolveDecorationRanges", () => {
         commentaries: [],
         decorations: [],
         marks: [],
+        fileIndex: 0,
       },
     ];
 
@@ -210,6 +211,7 @@ describe("assignDecorationsToPages", () => {
         commentaries: [],
         decorations: [],
         marks: [],
+        fileIndex: 0,
       },
       {
         pageNumber: 2,
@@ -218,6 +220,7 @@ describe("assignDecorationsToPages", () => {
         commentaries: [],
         decorations: [],
         marks: [],
+        fileIndex: 0,
       },
     ];
 

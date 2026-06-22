@@ -115,10 +115,7 @@ export function createProject(
 
   const bookConfig = { ...defaultBookConfig, name, title: name };
   const canvasConfig = { ...defaultCanvasConfig };
-  const textFiles = defaultTextLines.map((lines, idx) => ({
-    filename: `${String(idx).padStart(2, "0")}.txt`,
-    content: lines.join("\n"),
-  }));
+  const textFiles = textLinesToFiles(defaultTextLines);
 
   database
     .prepare(
@@ -163,12 +160,7 @@ export function updateProject(
     ? JSON.stringify(data.canvasConfig)
     : existing.canvas_config;
   const textFiles = data.textLines
-    ? JSON.stringify(
-        data.textLines.map((lines, idx) => ({
-          filename: `${String(idx).padStart(2, "0")}.txt`,
-          content: lines.join("\n"),
-        })),
-      )
+    ? JSON.stringify(textLinesToFiles(data.textLines))
     : existing.text_files;
 
   database
@@ -196,7 +188,7 @@ export function deleteProject(id: string): boolean {
 
 function rowToData(row: ProjectRow): ProjectData {
   const textFiles = JSON.parse(row.text_files || "[]") as { filename: string; content: string }[];
-  const textLines = textFiles.map((f) => f.content.split("\n"));
+  const textLines = filesToTextLines(textFiles);
 
   return {
     id: row.id,
@@ -207,6 +199,47 @@ function rowToData(row: ProjectRow): ProjectData {
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
   };
+}
+
+/**
+ * 将 textLines 数组转为后端存储的文件列表
+ * 约定:
+ *   [0] → _preface.txt (序)
+ *   [1] → _appendix.txt (附录)
+ *   [2+] → 01.txt, 02.txt, ... (章节)
+ */
+function textLinesToFiles(textLines: string[][]): { filename: string; content: string }[] {
+  const files: { filename: string; content: string }[] = [];
+  if (textLines.length > 0) files.push({ filename: "_preface.txt", content: textLines[0].join("\n") });
+  if (textLines.length > 1) files.push({ filename: "_appendix.txt", content: textLines[1].join("\n") });
+  for (let i = 2; i < textLines.length; i++) {
+    const chapterNum = String(i - 1).padStart(2, "0");
+    files.push({ filename: `${chapterNum}.txt`, content: textLines[i].join("\n") });
+  }
+  return files;
+}
+
+/**
+ * 将后端存储的文件列表还原为 textLines 数组
+ * 兼容旧数据（直接用 00.txt 编号的）
+ */
+function filesToTextLines(files: { filename: string; content: string }[]): string[][] {
+  const preface = files.find((f) => f.filename === "_preface.txt");
+  const appendix = files.find((f) => f.filename === "_appendix.txt");
+  const chapters = files
+    .filter((f) => f.filename !== "_preface.txt" && f.filename !== "_appendix.txt")
+    .sort((a, b) => a.filename.localeCompare(b.filename));
+
+  const result: string[][] = [];
+  // [0] 序
+  result.push(preface ? preface.content.split("\n") : []);
+  // [1] 附录
+  result.push(appendix ? appendix.content.split("\n") : []);
+  // [2+] 章节
+  for (const ch of chapters) {
+    result.push(ch.content.split("\n"));
+  }
+  return result;
 }
 
 /**
