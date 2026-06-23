@@ -107,15 +107,13 @@ describe("generatePositionGrid", () => {
     expect(result.commentPositions).toHaveLength(20);
   });
 
-  it("第一列在右侧", () => {
+  it("第一列在右侧（竖排从右到左）", () => {
     const result = generatePositionGrid(standardCanvas, grid, 5, 8);
 
-    // 列从右向左排列
-    // 右半列 (col >= 2) 在右侧 (x 较大), 左半列 (col < 2) 在左侧 (x 较小)
-    // 但 col 0 是左半列的第一个, 所以 x 较小
-    const last = result.textPositions[19]; // col 3 (最右)
-    const first = result.textPositions[0]; // col 0 (最左)
-    expect(last.x).toBeGreaterThan(first.x);
+    // 列从右向左排列: textPositions[0] = 最右列
+    const first = result.textPositions[0];  // col 0 → 最右列
+    const last = result.textPositions[19];  // col 3 → 最左列
+    expect(first.x).toBeGreaterThan(last.x);
   });
 
   it("行序从上到下", () => {

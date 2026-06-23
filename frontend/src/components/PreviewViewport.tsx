@@ -63,7 +63,7 @@ export default function PreviewViewport({
         <div className="flex items-center gap-3">
           <button
             type="button"
-            className="rounded border border-ink/20 bg-white/60 px-2 py-1 text-xs text-ink/60 transition hover:bg-vermilion/10 hover:text-vermilion disabled:opacity-30"
+            className="rounded border border-ink/20 bg-white/60 px-2 py-1 text-xs text-ink/85 transition hover:bg-vermilion/10 hover:text-vermilion disabled:opacity-30"
             disabled={!canGoPrev}
             onClick={() => {
               if (showCover) {
@@ -77,12 +77,12 @@ export default function PreviewViewport({
           >
             ← 上一页
           </button>
-          <span className="text-xs text-ink/40">
+          <span className="text-xs text-ink/65">
             {showCover ? "封面" : `第 ${currentPage} / ${totalPages} 页`}
           </span>
           <button
             type="button"
-            className="rounded border border-ink/20 bg-white/60 px-2 py-1 text-xs text-ink/60 transition hover:bg-vermilion/10 hover:text-vermilion disabled:opacity-30"
+            className="rounded border border-ink/20 bg-white/60 px-2 py-1 text-xs text-ink/85 transition hover:bg-vermilion/10 hover:text-vermilion disabled:opacity-30"
             disabled={!canGoNext}
             onClick={() => {
               if (showCover) {
@@ -98,7 +98,7 @@ export default function PreviewViewport({
           {totalPages > 0 && (
             <button
               type="button"
-              className="rounded border border-ink/20 bg-white/60 px-2 py-1 text-xs text-ink/60 transition hover:bg-vermilion/10 hover:text-vermilion"
+              className="rounded border border-ink/20 bg-white/60 px-2 py-1 text-xs text-ink/85 transition hover:bg-vermilion/10 hover:text-vermilion"
               onClick={() => onToggleCover?.()}
             >
               {showCover ? "隐藏封面" : "显示封面"}
@@ -118,7 +118,7 @@ export default function PreviewViewport({
 
       {/* 缩放控制 */}
       <div className="mt-3 flex items-center justify-center gap-3">
-        <label className="text-xs text-ink/50">缩放:</label>
+        <label className="text-xs text-ink/75">缩放:</label>
         <input
           type="range"
           min={0.3}
@@ -131,16 +131,16 @@ export default function PreviewViewport({
           }}
           className="h-1.5 w-32 accent-vermilion"
         />
-        <span className="text-xs text-ink/40">{Math.round(zoom * 100)}%</span>
+        <span className="text-xs text-ink/65">{Math.round(zoom * 100)}%</span>
       </div>
 
       {totalPages === 0 && (
-        <p className="mt-4 text-center text-xs text-ink/30">
+        <p className="mt-4 text-center text-xs text-ink/55">
           暂无预览 — 请在"文本"标签页添加文本内容
         </p>
       )}
 
-      <p className="mt-2 text-center text-xs text-ink/30">
+      <p className="mt-2 text-center text-xs text-ink/55">
         💡 调整"配置"标签页的参数，预览将自动更新 · {renderedCount} 页已渲染
       </p>
     </div>

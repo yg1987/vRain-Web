@@ -157,7 +157,7 @@ export default function FontSelector({
       ] as const).map((row) => (
         <div key={row.label} className="mb-3 flex items-center gap-3 border-b border-ink/5 pb-3">
           {/* 标签 */}
-          <span className="w-16 shrink-0 text-sm font-medium text-ink/70">{row.label}</span>
+          <span className="w-16 shrink-0 text-sm font-medium text-ink/90">{row.label}</span>
 
           {/* 字体下拉 */}
           <select
@@ -188,13 +188,13 @@ export default function FontSelector({
         </div>
       ))}
 
-      <p className="mb-3 text-[11px] text-ink/40">
+      <p className="mb-3 text-[11px] text-ink/65">
         封面作者字体沿用正文，字号在书籍配置中调整
       </p>
 
       {/* 底部：共享预览输入 + 上传字体 */}
       <div className="flex items-center gap-3">
-        <span className="text-xs text-ink/40">预览文字</span>
+        <span className="text-xs text-ink/65">预览文字</span>
         <input
           type="text"
           value={previewText}

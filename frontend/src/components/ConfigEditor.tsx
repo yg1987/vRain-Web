@@ -94,7 +94,7 @@ export default function ConfigEditor({ bookConfig, canvasConfig, onChange }: Pro
               ── 自定义 ──
             </option>
           </select>
-          <p className="mt-1 text-[10px] text-ink/40">
+          <p className="mt-1 text-[10px] text-ink/65">
             选择预设将自动替换右边画布参数
           </p>
         </div>
@@ -111,7 +111,7 @@ export default function ConfigEditor({ bookConfig, canvasConfig, onChange }: Pro
               className="accent-vermilion h-4 w-4 cursor-pointer"
             />
             <label className="cursor-pointer text-sm font-medium text-amber-900">
-              简繁对照
+简→繁
             </label>
             <span className="text-xs text-amber-700/70">
               简繁转换 (预览页查看效果)

@@ -48,9 +48,9 @@ export default function ProjectDetail() {
       try {
         setLoading(true);
         const project = await api.getProject(projectId);
-        const bConfig = project.bookConfig as BookConfig;
+        const bConfig = project.bookConfig;
         setBookConfig(bConfig);
-        setCanvasConfig(project.canvasConfig as CanvasConfig);
+        setCanvasConfig(project.canvasConfig);
         setTextLines(project.textLines.map((arr) => [...arr]));
         setChapterTitles(project.chapterTitles || ["序", "附录", "第一回"]);
         // 加载字体到浏览器供 canvas 渲染
@@ -176,7 +176,7 @@ export default function ProjectDetail() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="text-ink/50">加载中...</div>
+        <div className="text-ink/75">加载中...</div>
       </div>
     );
   }
@@ -209,7 +209,7 @@ export default function ProjectDetail() {
               className={`flex-1 px-4 py-2 text-sm transition-colors ${
                 activeTab === tab.key
                   ? "border-b-2 border-vermilion font-semibold text-vermilion"
-                  : "text-ink/60 hover:text-ink"
+                  : "text-ink/85 hover:text-ink"
               }`}
               onClick={() => setActiveTab(tab.key)}
             >
@@ -223,7 +223,7 @@ export default function ProjectDetail() {
               {saveStatus === "saving" && (
                 <>
                   <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-amber-500" />
-                  <span className="text-ink/50">保存中...</span>
+                  <span className="text-ink/75">保存中...</span>
                 </>
               )}
               {saveStatus === "saved" && (

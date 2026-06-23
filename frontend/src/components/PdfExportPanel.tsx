@@ -123,7 +123,7 @@ export default function PdfExportPanel({ bookConfig, canvasConfig, totalPages, p
       {/* 章节范围选择 */}
       {chapterCount > 0 && (
         <div className="mt-3 flex items-center gap-3">
-          <span className="text-sm text-ink/60">导出范围：第</span>
+          <span className="text-sm text-ink/85">导出范围：第</span>
           <select
             className="config-select w-24"
             value={chapterFrom}
@@ -136,7 +136,7 @@ export default function PdfExportPanel({ bookConfig, canvasConfig, totalPages, p
           >
             {chapterOptions}
           </select>
-          <span className="text-sm text-ink/60">章 至 第</span>
+          <span className="text-sm text-ink/85">章 至 第</span>
           <select
             className="config-select w-24"
             value={chapterTo}
@@ -149,7 +149,7 @@ export default function PdfExportPanel({ bookConfig, canvasConfig, totalPages, p
           >
             {chapterOptions}
           </select>
-          <span className="text-sm text-ink/60">章（共 {chapterCount} 章）</span>
+          <span className="text-sm text-ink/85">章（共 {chapterCount} 章）</span>
         </div>
       )}
 
@@ -173,7 +173,7 @@ export default function PdfExportPanel({ bookConfig, canvasConfig, totalPages, p
                 onChange={(e) => setTestPages(parseInt(e.target.value) || 0)}
                 className="config-select w-20"
               />
-              <span className="text-xs text-ink/40">页</span>
+              <span className="text-xs text-ink/65">页</span>
             </>
           )}
         </label>
@@ -224,7 +224,7 @@ export default function PdfExportPanel({ bookConfig, canvasConfig, totalPages, p
       )}
 
       {/* 说明 */}
-      <div className="mt-4 space-y-2 rounded border border-ink/10 bg-ink/[0.02] p-3 text-xs text-ink/50">
+      <div className="mt-4 space-y-2 rounded border border-ink/10 bg-ink/[0.02] p-3 text-xs text-ink/75">
         <p>
           📖 输出文件: <code className="rounded bg-ink/[0.06] px-1">{bookConfig.title || "未命名"}.pdf</code>
           — 文件名取自书籍配置中的书名

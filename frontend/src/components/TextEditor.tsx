@@ -94,7 +94,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
     <div className="flex h-full gap-4">
       {/* 左侧文件列表 */}
       <div className="w-48 shrink-0 space-y-1">
-        <h3 className="mb-2 text-sm font-semibold text-ink/70">📄 文本文件</h3>
+        <h3 className="mb-2 text-sm font-semibold text-ink/90">📄 文本文件</h3>
 
         {/* 序 */}
         <button
@@ -102,7 +102,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
           className={`w-full rounded px-3 py-1.5 text-left text-xs transition-colors ${
             activeIdx === PREFACE_IDX
               ? "bg-vermilion/10 font-semibold text-vermilion"
-              : "text-ink/60 hover:bg-ink/[0.04]"
+              : "text-ink/85 hover:bg-ink/[0.04]"
           }`}
         >
           <span className="mr-1">★</span>
@@ -115,7 +115,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
           className={`w-full rounded px-3 py-1.5 text-left text-xs transition-colors ${
             activeIdx === APPENDIX_IDX
               ? "bg-vermilion/10 font-semibold text-vermilion"
-              : "text-ink/60 hover:bg-ink/[0.04]"
+              : "text-ink/85 hover:bg-ink/[0.04]"
           }`}
         >
           <span className="mr-1">★</span>
@@ -135,7 +135,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
               className={`group w-full rounded px-3 py-1.5 text-left text-xs transition-colors ${
                 activeIdx === idx
                   ? "bg-vermilion/10 font-semibold text-vermilion"
-                  : "text-ink/60 hover:bg-ink/[0.04]"
+                  : "text-ink/85 hover:bg-ink/[0.04]"
               }`}
             >
               <span className="mr-1 font-mono text-[10px] opacity-50">
@@ -150,14 +150,14 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
         <div className="flex gap-1 pt-2">
           <button
             onClick={handleAddChapter}
-            className="flex-1 rounded border border-dashed border-ink/20 px-2 py-1 text-xs text-ink/40 transition-colors hover:border-green-400 hover:text-green-700"
+            className="flex-1 rounded border border-dashed border-ink/20 px-2 py-1 text-xs text-ink/65 transition-colors hover:border-green-400 hover:text-green-700"
           >
             ＋ 新增章节
           </button>
           {chapterCount > 1 && isChapter && (
             <button
               onClick={handleDeleteChapter}
-              className="rounded border border-dashed border-ink/20 px-2 py-1 text-xs text-ink/40 transition-colors hover:border-red-400 hover:text-red-600"
+              className="rounded border border-dashed border-ink/20 px-2 py-1 text-xs text-ink/65 transition-colors hover:border-red-400 hover:text-red-600"
               title="删除当前章节"
             >
               ✕
@@ -165,7 +165,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
           )}
         </div>
 
-        <p className="mt-2 text-[10px] text-ink/30">
+        <p className="mt-2 text-[10px] text-ink/55">
           共 {chapterCount} 章 · 序和附录为空则不导出
         </p>
       </div>
@@ -173,7 +173,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
       {/* 右侧编辑区 */}
       <div className="flex flex-1 flex-col">
         {/* 当前文件标识 */}
-        <div className="mb-2 flex items-center gap-2 text-xs text-ink/40">
+        <div className="mb-2 flex items-center gap-2 text-xs text-ink/65">
           {activeIdx === PREFACE_IDX && <span>★ 序（{hasPreface ? "有内容" : "空"}）</span>}
           {activeIdx === APPENDIX_IDX && <span>★ 附录（{hasAppendix ? "有内容" : "空"}）</span>}
           {isChapter && (
@@ -185,7 +185,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
 
         {/* 章节标题输入 */}
         <div className="mb-2 flex items-center gap-2">
-          <label className="text-xs text-ink/50 whitespace-nowrap">
+          <label className="text-xs text-ink/75 whitespace-nowrap">
             {activeIdx === PREFACE_IDX
               ? "序标题:"
               : activeIdx === APPENDIX_IDX
@@ -194,7 +194,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
           </label>
           <input
             type="text"
-            className="flex-1 rounded border border-ink/15 bg-white/60 px-2 py-1 text-xs text-ink/80 transition-colors focus:border-vermilion/40 focus:outline-none"
+            className="flex-1 rounded border border-ink/15 bg-white/60 px-2 py-1 text-xs text-ink/95 transition-colors focus:border-vermilion/40 focus:outline-none"
             placeholder={
               activeIdx === PREFACE_IDX
                 ? "如：序"
@@ -224,8 +224,8 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
 
         {/* 标记语法提示 */}
         <div className="mt-4 rounded border border-ink/10 bg-ink/[0.02] p-3">
-          <h4 className="mb-2 text-xs font-semibold text-ink/50">标记语法参考</h4>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs text-ink/60">
+          <h4 className="mb-2 text-xs font-semibold text-ink/75">标记语法参考</h4>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs text-ink/85">
             <div><code className="rounded bg-ink/[0.06] px-1">【】</code> 夹批注释</div>
             <div><code className="rounded bg-ink/[0.06] px-1">《》</code> 书名号线</div>
             <div><code className="rounded bg-ink/[0.06] px-1">{`〔〕`}</code> 圆角框</div>

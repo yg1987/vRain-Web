@@ -80,7 +80,7 @@ export default function ProjectList() {
   if (loading) {
     return (
       <div className="min-h-screen p-8 flex items-center justify-center">
-        <div className="text-ink/50">加载中...</div>
+        <div className="text-ink/75">加载中...</div>
       </div>
     );
   }
@@ -104,7 +104,7 @@ export default function ProjectList() {
         <h1 className="text-2xl font-ancient font-bold text-ink">
           vRain — 兀雨古籍刻本直排电子书制作工具
         </h1>
-        <p className="mt-1 text-sm text-ink/60">
+        <p className="mt-1 text-sm text-ink/85">
           古典线装书风格竖排 PDF 电子书生成器，Web 版
         </p>
       </header>
@@ -137,7 +137,7 @@ export default function ProjectList() {
       </div>
 
       {projects.length === 0 ? (
-        <div className="rounded-lg border border-ink/10 bg-white/40 p-12 text-center text-ink/50">
+        <div className="rounded-lg border border-ink/10 bg-white/40 p-12 text-center text-ink/75">
           暂无项目，点击「新建项目」开始
         </div>
       ) : (
@@ -150,20 +150,20 @@ export default function ProjectList() {
             >
               <h3 className="text-base font-semibold text-ink">{project.name}</h3>
               {project.bookConfig.author && (
-                <p className="mt-1 text-xs text-ink/50">{project.bookConfig.author as string}</p>
+                <p className="mt-1 text-xs text-ink/75">{project.bookConfig.author}</p>
               )}
-              <div className="mt-3 flex items-center gap-3 text-xs text-ink/40">
-                <span>{project.bookConfig.rowNum as number} 字/列</span>
+              <div className="mt-3 flex items-center gap-3 text-xs text-ink/65">
+                <span>{project.bookConfig.rowNum} 字/列</span>
                 <span>{project.textLines.length} 文件</span>
-                <span>{project.bookConfig.canvasId as string}</span>
+                <span>{project.bookConfig.canvasId}</span>
               </div>
-              <p className="mt-1 text-[10px] text-ink/30">
+              <p className="mt-1 text-[10px] text-ink/55">
                 {new Date(project.updatedAt).toLocaleString("zh-CN")}
               </p>
 
               {/* 删除按钮 */}
               <button
-                className="absolute right-2 top-2 rounded p-1 text-ink/30 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+                className="absolute right-2 top-2 rounded p-1 text-ink/55 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
                 onClick={(e) => handleDelete(e, project.id)}
                 title="删除项目"
               >

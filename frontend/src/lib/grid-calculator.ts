@@ -121,7 +121,7 @@ export function generatePositionGrid(
 
   if (!isMultirows) {
     // 标准模式: 右向左逐列 (古籍竖排传统)
-    for (let col = leafCol - 1; col >= 0; col--) {
+    for (let col = 0; col < leafCol; col++) {
       for (let row = 0; row < rowNum; row++) {
         const pt = computeStandardPosition(canvas, col, row, colWidth, rowHeight, rowNum, rowDeltaY);
         const commentPt = computeCommentPosition(canvas, col, row, colWidth, rowHeight, rowNum);
@@ -133,7 +133,7 @@ export function generatePositionGrid(
     // 多栏模式: 按水平条带划分，每栏内右向左
     const rowsPerBand = rowNum / multirowsNum;
     for (let band = 0; band < multirowsNum; band++) {
-      for (let col = leafCol - 1; col >= 0; col--) {
+      for (let col = 0; col < leafCol; col++) {
         for (let rowInBand = 0; rowInBand < rowsPerBand; rowInBand++) {
           const globalRow = band * rowsPerBand + rowInBand;
           const pt = computeMultirowPosition(canvas, col, globalRow, colWidth, rowNum, rowHeight, rowDeltaY, band, rowInBand);

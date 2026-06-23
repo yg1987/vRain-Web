@@ -46,7 +46,7 @@ export default function PunctuationPanel({ bookConfig, onChange }: Props) {
       <div className="config-group">
         <label className="config-group-label">
           标点替换
-          <span className="ml-1 text-[10px] text-ink/40">(from|to|from|to)</span>
+          <span className="ml-1 text-[10px] text-ink/65">(from|to|from|to)</span>
         </label>
         <input
           className="config-input font-mono text-xs"
@@ -54,7 +54,7 @@ export default function PunctuationPanel({ bookConfig, onChange }: Props) {
           value={replacementStr}
           onChange={(e) => handleReplacementChange(e.target.value)}
         />
-        <p className="mt-1 text-[10px] text-ink/40">
+        <p className="mt-1 text-[10px] text-ink/65">
           管道分隔的成对字符，半角→全角
         </p>
       </div>
@@ -63,7 +63,7 @@ export default function PunctuationPanel({ bookConfig, onChange }: Props) {
       <div className="config-group">
         <label className="config-group-label">
           标点删除
-          <span className="ml-1 text-[10px] text-ink/40">(管道分隔)</span>
+          <span className="ml-1 text-[10px] text-ink/65">(管道分隔)</span>
         </label>
         <input
           className="config-input font-mono text-xs"
@@ -79,7 +79,7 @@ export default function PunctuationPanel({ bookConfig, onChange }: Props) {
           <input type="checkbox" checked={bookConfig.noPunctuationMode}
             onChange={(e) => update({ noPunctuationMode: e.target.checked })}
             className="accent-vermilion h-4 w-4 cursor-pointer" />
-          <label className="cursor-pointer text-sm font-medium text-ink/80"
+          <label className="cursor-pointer text-sm font-medium text-ink/95"
             onClick={() => update({ noPunctuationMode: !bookConfig.noPunctuationMode })}>
             无标点模式
           </label>
@@ -100,7 +100,7 @@ export default function PunctuationPanel({ bookConfig, onChange }: Props) {
           <input type="checkbox" checked={bookConfig.onlyPeriodMode}
             onChange={(e) => update({ onlyPeriodMode: e.target.checked })}
             className="accent-vermilion h-4 w-4 cursor-pointer" />
-          <label className="cursor-pointer text-sm font-medium text-ink/80"
+          <label className="cursor-pointer text-sm font-medium text-ink/95"
             onClick={() => update({ onlyPeriodMode: !bookConfig.onlyPeriodMode })}>
             统一句号模式
           </label>
@@ -118,7 +118,7 @@ export default function PunctuationPanel({ bookConfig, onChange }: Props) {
       <div className="my-3 border-t border-ink/10" />
 
       {/* 正文标点精细控制 */}
-      <h4 className="mb-2 text-xs font-semibold text-ink/70">正文标点精细控制</h4>
+      <h4 className="mb-2 text-xs font-semibold text-ink/90">正文标点精细控制</h4>
 
       {/* 不占位标点 */}
       <div className="config-group">
@@ -153,7 +153,7 @@ export default function PunctuationPanel({ bookConfig, onChange }: Props) {
       <div className="my-3 border-t border-ink/10" />
 
       {/* 批注标点 */}
-      <h4 className="mb-2 text-xs font-semibold text-ink/70">批注标点独立配置</h4>
+      <h4 className="mb-2 text-xs font-semibold text-ink/90">批注标点独立配置</h4>
 
       <div className="config-group">
         <label className="config-group-label">不占位标点 (comment_comma_nop)</label>
@@ -179,7 +179,7 @@ function MiniInput({ label, value, step = 1, onChange }: {
 }) {
   return (
     <div>
-      <span className="block text-[10px] text-ink/40">{label}</span>
+      <span className="block text-[10px] text-ink/65">{label}</span>
       <input type="number" step={step} value={value}
         onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
         className="w-full rounded border border-ink/10 px-1.5 py-0.5 text-xs" />

@@ -28,7 +28,7 @@ export default function DecorationPanel({ bookConfig, onChange }: Props) {
   return (
     <div className="config-panel">
       <h3 className="config-panel-title">🎭 装饰标记</h3>
-      <p className="mb-3 text-xs text-ink/50">
+      <p className="mb-3 text-xs text-ink/75">
         控制文本中《》〔〕〈〉（）｛｝＜＞［］标记的渲染效果
       </p>
       <p className="mb-4 text-[11px] text-amber-700/70">
@@ -167,7 +167,7 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
     <label className="flex cursor-pointer items-center gap-2 text-sm">
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)}
         className="accent-vermilion h-4 w-4 cursor-pointer" />
-      <span className="font-medium text-ink/80">{label}</span>
+      <span className="font-medium text-ink/95">{label}</span>
     </label>
   );
 }
@@ -177,11 +177,11 @@ function NumberSlider({ label, value, min, max, step = 1, onChange }: {
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="w-16 text-xs text-ink/60">{label}</span>
+      <span className="w-16 text-xs text-ink/85">{label}</span>
       <input type="range" min={min} max={max} step={step} value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
         className="flex-1 accent-vermilion h-3 cursor-pointer" />
-      <span className="w-8 text-right text-xs text-ink/50">{value}</span>
+      <span className="w-8 text-right text-xs text-ink/75">{value}</span>
     </div>
   );
 }
@@ -189,7 +189,7 @@ function NumberSlider({ label, value, min, max, step = 1, onChange }: {
 function ColorInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="w-16 text-xs text-ink/60">{label}</span>
+      <span className="w-16 text-xs text-ink/85">{label}</span>
       <input type="color" value={value} onChange={(e) => onChange(e.target.value)}
         className="h-6 w-10 cursor-pointer rounded border border-ink/20" />
       <input type="text" value={value} onChange={(e) => onChange(e.target.value)}
@@ -203,7 +203,7 @@ function SelectRow({ label, value, options, onChange }: {
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="w-16 text-xs text-ink/60">{label}</span>
+      <span className="w-16 text-xs text-ink/85">{label}</span>
       <select value={value} onChange={(e) => onChange(e.target.value)}
         className="flex-1 rounded border border-ink/10 px-2 py-0.5 text-xs">
         {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}

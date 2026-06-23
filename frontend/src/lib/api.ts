@@ -4,6 +4,7 @@
  * 统一 fetch 调用，简化前后端通信。
  * 所有请求自动处理 JSON 序列化/反序列化。
  */
+import type { BookConfig, CanvasConfig } from "../types/layout";
 
 // ============================================================================
 // 基础请求函数
@@ -57,8 +58,8 @@ function del<T>(url: string): Promise<T> {
 export interface ProjectData {
   id: string;
   name: string;
-  bookConfig: Record<string, unknown>;
-  canvasConfig: Record<string, unknown>;
+  bookConfig: BookConfig;
+  canvasConfig: CanvasConfig;
   textLines: string[][];
   chapterTitles: string[];
   createdAt: string;
@@ -93,8 +94,8 @@ export const api = {
    * 创建新项目
    */
   createProject: (name: string, defaults?: {
-    bookConfig?: Record<string, unknown>;
-    canvasConfig?: Record<string, unknown>;
+    bookConfig?: BookConfig;
+    canvasConfig?: CanvasConfig;
     textLines?: string[][];
   }) =>
     post<ProjectData>("/api/projects", { name, ...defaults }),
@@ -110,9 +111,10 @@ export const api = {
   updateProject: (
     id: string,
     data: {
-      bookConfig?: Record<string, unknown>;
-      canvasConfig?: Record<string, unknown>;
+      bookConfig?: BookConfig;
+      canvasConfig?: CanvasConfig;
       textLines?: string[][];
+      chapterTitles?: string[];
     },
   ) =>
     put<UpdateProjectResponse>(`/api/projects/${id}`, {
