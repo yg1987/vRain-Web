@@ -186,11 +186,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
         {/* 章节标题输入 */}
         <div className="mb-2 flex items-center gap-2">
           <label className="text-xs text-ink/75 whitespace-nowrap">
-            {activeIdx === PREFACE_IDX
-              ? "序标题:"
-              : activeIdx === APPENDIX_IDX
-              ? "附录标题:"
-              : "回目:"}
+            标题:
           </label>
           <input
             type="text"

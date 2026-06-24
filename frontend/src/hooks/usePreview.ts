@@ -57,6 +57,7 @@ export function usePreview(options: UsePreviewOptions) {
       setState((s) => ({ ...s, isProcessing: true }));
 
       // 1. 计算网格
+      const textFontSize = bookConfig.fonts[0]?.textPointSize ?? 60;
       const grid = computeGridMetrics(canvasConfig, bookConfig.rowNum);
       const positions = generatePositionGrid(canvasConfig, grid, bookConfig.rowNum, bookConfig.rowDeltaY);
 
@@ -103,6 +104,13 @@ export function usePreview(options: UsePreviewOptions) {
             allCommentary.push({ char: cm, isCommentary: true });
           }
         }
+
+        // 每个文件结束后插入分页符，确保下一章节从新页开始
+        // 只在有内容的文件后面插入，避免空文件产生空页
+        const hasContent = allChars.length > fileCharStart[fi];
+        if (hasContent && fi < textLines.length - 1) {
+          allChars.push("%");
+        }
       }
 
       // 3. 分页
@@ -123,15 +131,17 @@ export function usePreview(options: UsePreviewOptions) {
       let pages: Page[] = paginated.pages.map((pg, idx) => {
         const pageFileIndex = findFileIndex(cumChars, cumChars + pg.characters.length, fileCharStart);
         cumChars += pg.characters.length;
+        // 用文件索引（而非页码）查找标题，确保多页文件的每一页都显示正确的标题
+        const pageTitle = titles[pageFileIndex] || bookConfig.title;
         return {
           pageNumber: idx + 1,
           canvas: { ...canvasConfig },
-          title: titles[idx] || bookConfig.title,
+          title: pageTitle,
           characters: pg.characters,
           commentaries: pg.commentaries,
           decorations: pg.decorations,
           marks: pg.marks,
-          outlineTitle: titles[idx],
+          outlineTitle: pageTitle,
           outlinePage: idx + 2, // 封面 + 内容偏移
           fileIndex: pageFileIndex,
         };
@@ -161,10 +171,17 @@ export function usePreview(options: UsePreviewOptions) {
 
       // 防抖: 等待 200ms 无新请求再渲染
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => {
+      timerRef.current = setTimeout(async () => {
         try {
+          // 等待字体加载完成，避免 Canvas 渲染 tofu 方块
+          const fontFamily = bookConfig.textFontFamily || "serif";
+          const fontSize = bookConfig.fonts[0]?.textPointSize ?? 60;
+          // 如果字体未加载，等待最多 5 秒
+          for (let i = 0; i < 50; i++) {
+            if (document.fonts.check(`${fontSize}px "${fontFamily}"`)) break;
+            await new Promise((r) => setTimeout(r, 100));
+          }
           renderPages(canvas, pages, bookConfig, canvasConfig, {
-            scale: state.zoom,
             pageIndex: showCover ? 0 : pageIndex,
             renderCover: showCover,
           });
@@ -175,7 +192,7 @@ export function usePreview(options: UsePreviewOptions) {
         }
       }, 200);
     },
-    [bookConfig, state.zoom],
+    [bookConfig, canvasConfig],
   );
 
   // 配置变更 → 重建 IR → 渲染
@@ -247,16 +264,27 @@ export function usePreview(options: UsePreviewOptions) {
 }
 
 /**
- * 根据字符索引范围定位所属文件
+ * 根据字符索引范围定位所属文件（使用多数内容原则）
  * @param charStart 该页第一个字符在 allChars 中的索引
  * @param charEnd   该页最后一个字符之后
  * @param boundaries 各文件在 allChars 中的起始索引
  */
-function findFileIndex(charStart: number, _charEnd: number, boundaries: number[]): number {
-  // boundaries[i] = 文件 i 的起始字符索引，boundaries[i+1] = 文件 i+1 的起始字符索引
-  // 找到最大的 i 使得 boundaries[i] <= charStart
-  for (let i = boundaries.length - 1; i >= 0; i--) {
-    if (boundaries[i] <= charStart) return i;
+function findFileIndex(charStart: number, charEnd: number, boundaries: number[]): number {
+  // boundaries[i] = 文件 i 的起始字符索引
+  // 一页可能跨越多个文件（如序的末尾 + 章节的开头），用多数内容原则判断归属
+  let bestIndex = 0;
+  let bestCount = 0;
+  for (let i = 0; i < boundaries.length; i++) {
+    const fileStart = boundaries[i];
+    const fileEnd = i < boundaries.length - 1 ? boundaries[i + 1] : charEnd;
+    // 该文件在本页中的字符数 = 交集长度
+    const overlapStart = Math.max(charStart, fileStart);
+    const overlapEnd = Math.min(charEnd, fileEnd);
+    const count = Math.max(0, overlapEnd - overlapStart);
+    if (count > bestCount) {
+      bestCount = count;
+      bestIndex = i;
+    }
   }
-  return 0;
+  return bestIndex;
 }

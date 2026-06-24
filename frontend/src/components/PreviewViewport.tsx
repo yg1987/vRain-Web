@@ -41,12 +41,11 @@ export default function PreviewViewport({
     if (!canvas || pages.length === 0) return;
 
     const result = renderPages(canvas, pages, bookConfig, canvasConfig, {
-      scale: zoom,
-      pageIndex: showCover ? 0 : currentPage - 1,
+      pageIndex: showCover ? 0 : currentPage,
       renderCover: showCover,
     });
     setRenderedCount(result.renderedPageCount);
-  }, [pages, bookConfig, canvasConfig, currentPage, zoom, showCover]);
+  }, [pages, bookConfig, canvasConfig, currentPage, showCover]);
 
   useEffect(() => {
     doRender();
@@ -107,13 +106,22 @@ export default function PreviewViewport({
         </div>
       </div>
 
-      {/* Canvas */}
+      {/* Canvas 容器 — 缩放通过 CSS transform 实现 */}
       <div className="flex flex-1 justify-center overflow-auto">
-        <canvas
-          ref={canvasRef}
-          className="preview-viewport max-w-full"
-          style={{ imageRendering: "auto" }}
-        />
+        <div
+          className="preview-viewport-container"
+          style={{
+            transform: `scale(${zoom})`,
+            transformOrigin: 'top center',
+            transition: 'transform 0.2s ease',
+          }}
+        >
+          <canvas
+            ref={canvasRef}
+            className="preview-viewport"
+            style={{ imageRendering: "auto" }}
+          />
+        </div>
       </div>
 
       {/* 缩放控制 */}

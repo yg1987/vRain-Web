@@ -6,7 +6,7 @@
 //   node start.mjs --port 3100 --backend-port 8180
 
 import { execSync, spawn } from "child_process";
-import { readFileSync } from "fs";
+import { readFileSync, statSync } from "fs";
 import { fileURLToPath } from "url";
 import { join } from "path";
 
@@ -128,8 +128,21 @@ console.log("");
 // 绕过 npm / concurrently 的环境传递问题
 
 // 直接调用入口 JS，避开 npx/cmd.exe，实现干净 Ctrl+C
-const frontendBin = join(__dirname, "frontend", "node_modules", "vite", "bin", "vite.js");
-const backendBin = join(__dirname, "backend", "node_modules", "tsx", "dist", "cli.mjs");
+// npm workspaces 会把包 hoist 到根 node_modules，所以尝试多个位置
+function resolveBin(p) {
+  const tryPaths = [
+    join(__dirname, "node_modules", p),
+    join(__dirname, "frontend", "node_modules", p),
+    join(__dirname, "backend", "node_modules", p),
+  ];
+  for (const full of tryPaths) {
+    try { if (statSync(full).isFile()) return full; } catch {}
+  }
+  throw new Error(`Cannot find binary: ${p} (tried ${tryPaths.length} paths)`);
+}
+
+const frontendBin = resolveBin("vite/bin/vite.js");
+const backendBin = resolveBin("tsx/dist/cli.mjs");
 
 const frontendProc = spawn(
   "node",

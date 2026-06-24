@@ -240,12 +240,16 @@ function renderTitle(title: string, bookConfig: BookConfig, canvas: CanvasConfig
   const fontSize = bookConfig.titleFontSize;
   const spacing = bookConfig.titleYDis;
   const yStart = bookConfig.titleY;
-  const x = canvas.width / 2 - fontSize / 2;
+  // 居中于中缝区域，而非用 fontSize 偏移（fontSize ≠ 字符实际渲染宽度）
+  const gapLeft = canvas.width / 2 - canvas.leafCenterWidth / 2;
+  const gapWidth = canvas.leafCenterWidth;
+  const x = gapLeft + (gapWidth - fontSize) / 2;
   const outlineAttrs = isOutline && bookmarkLabel ? ` class="vrain-outline" data-bookmark="${escapeHtml(bookmarkLabel)}"` : "";
 
-  let html = `<div style="position:absolute;left:${x}px;color:${bookConfig.titleColor || 'black'};font-size:${fontSize}px;writing-mode:vertical-rl;"${outlineAttrs}>`;
+  let html = `<div style="position:absolute;left:${x}px;top:${yStart}px;color:${bookConfig.titleColor || 'black'};font-size:${fontSize}px;"${outlineAttrs}>`;
   for (let i = 0; i < chars.length; i++) {
-    html += `<span style="display:inline-block;margin-top:${-fontSize * spacing}px;">${escapeHtml(chars[i])}</span>`;
+    const cy = i * fontSize * spacing;
+    html += `<span style="position:absolute;top:${cy}px;left:0;">${escapeHtml(chars[i])}</span>`;
   }
   html += `</div>`;
   return html;
@@ -257,11 +261,15 @@ function renderPageNumber(pageNum: number, bookConfig: BookConfig, canvas: Canva
   const chars = [...numStr];
   const fontSize = bookConfig.pagerFontSize;
   const yStart = bookConfig.pagerY;
-  const x = canvas.width / 2 - fontSize / 2;
+  // 居中于中缝区域
+  const gapLeft = canvas.width / 2 - canvas.leafCenterWidth / 2;
+  const gapWidth = canvas.leafCenterWidth;
+  const x = gapLeft + (gapWidth - fontSize) / 2;
 
-  let html = `<div style="position:absolute;left:${x}px;color:${bookConfig.pagerColor || 'black'};font-size:${fontSize}px;writing-mode:vertical-rl;">`;
-  for (const c of chars) {
-    html += `<span style="display:inline-block;">${escapeHtml(c)}</span>`;
+  let html = `<div style="position:absolute;left:${x}px;top:${yStart}px;color:${bookConfig.pagerColor || 'black'};font-size:${fontSize}px;">`;
+  for (let i = 0; i < chars.length; i++) {
+    const cy = i * fontSize * 1.2;
+    html += `<span style="position:absolute;top:${cy}px;left:0;">${escapeHtml(chars[i])}</span>`;
   }
   html += `</div>`;
   return html;

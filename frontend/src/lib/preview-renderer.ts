@@ -7,8 +7,6 @@
 import type { Page, BookConfig, CanvasConfig } from "../types/layout";
 
 export interface RendererOptions {
-  /** 缩放比例 (默认 1, 可 >1 高清放大, <1 缩小) */
-  scale?: number;
   /** 要渲染的页面索引 (从 1 开始) */
   pageIndex?: number;
   /** 是否渲染封面 */
@@ -30,22 +28,31 @@ export function renderPages(
   opts: RendererOptions = {},
 ): RenderResult {
   const {
-    scale = 1,
     pageIndex = 0,
     renderCover = false,
   } = opts;
 
   const dpr = window.devicePixelRatio || 1;
-  const cssWidth = Math.ceil(canvasConfig.width / 10) * 10; // 缩放以便在屏幕显示
+
+  // 适配视口宽度: 取外层滚动容器的宽度与画布原宽中的较小值
+  // 注意: 不能取 canvas.parentElement (transform wrapper 尺寸由 canvas 决定，会形成循环)
+  // 应该取 overflow-auto 容器的 clientWidth
+  const scrollContainer = canvas.closest('.overflow-auto');
+  const parentWidth = (scrollContainer?.clientWidth || canvas.parentElement?.clientWidth || canvasConfig.width) - 4;
+  // 使用外层容器宽度作为 Canvas 内部分辨率，确保文字清晰
+  const cssWidth = Math.min(Math.ceil(canvasConfig.width / 10) * 10, Math.max(400, parentWidth));
   const cssHeight = Math.ceil((canvasConfig.height * cssWidth) / canvasConfig.width);
 
-  canvas.width = cssWidth * scale * dpr;
-  canvas.height = cssHeight * scale * dpr;
+  // 内部分辨率 = CSS 尺寸 * DPR，不使用额外的 scale
+  canvas.width = cssWidth * dpr;
+  canvas.height = cssHeight * dpr;
   canvas.style.width = cssWidth + "px";
   canvas.style.height = cssHeight + "px";
 
   const ctx = canvas.getContext("2d")!;
-  ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+  // 设置 DPR 缩放（高清屏适配），不再叠加预览缩放
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // 将画布内容缩放到容器尺寸
   ctx.scale(cssWidth / canvasConfig.width, cssHeight / canvasConfig.height);
 
   // 清屏
@@ -142,7 +149,7 @@ function drawPage(ctx: CanvasRenderingContext2D, page: Page, bookConfig: BookCon
 
   // 字符
   for (const ch of page.characters) {
-    if (ch.isCommentary) continue; // 批注单独绘制
+    if (ch.isCommentary) continue;
     drawCharacter(ctx, ch);
   }
 
@@ -164,12 +171,11 @@ function drawBorders(ctx: CanvasRenderingContext2D, canvas: CanvasConfig) {
   // 外框
   ctx.strokeStyle = outerBorder.color || "black";
   ctx.lineWidth = outerBorder.width || 10;
-  ctx.strokeRect(
-    margins.left,
-    margins.top,
-    canvas.width - margins.left - margins.right,
-    canvas.height - margins.top - margins.bottom,
-  );
+  const outerX = margins.left;
+  const outerY = margins.top;
+  const outerW = canvas.width - margins.left - margins.right;
+  const outerH = canvas.height - margins.top - margins.bottom;
+  ctx.strokeRect(outerX, outerY, outerW, outerH);
 
   // 内框
   ctx.strokeStyle = innerBorder.color || "black";
@@ -469,10 +475,15 @@ function drawTitle(
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
 
-  const canvasCenterX = page.canvas.width / 2 - fontSize / 2;
+  // 动态测量标题字符实际渲染宽度，居中于中缝区域
+  // 中缝区域: [canvas.width/2 - leafCenterWidth/2, canvas.width/2 + leafCenterWidth/2]
+  const gapLeft = page.canvas.width / 2 - page.canvas.leafCenterWidth / 2;
+  const gapWidth = page.canvas.leafCenterWidth;
+  const charWidth = ctx.measureText(chars[0] || "").width;
+  const canvasCenterX = gapLeft + (gapWidth - charWidth) / 2 + charWidth / 2;
 
   for (let i = 0; i < chars.length; i++) {
-    const cy = yStart - i * fontSize * spacing;
+    const cy = yStart + i * fontSize * spacing;
     ctx.fillText(chars[i], canvasCenterX, cy);
   }
 }
@@ -483,7 +494,11 @@ function drawPageNumber(ctx: CanvasRenderingContext2D, pageNum: number, config: 
   const chars = [...numStr];
   const yStart = config.pagerY;
   const fontSize = config.pagerFontSize;
-  const centerX = canvas.width / 2 - fontSize / 2;
+  // 居中于中缝区域
+  const gapLeft = canvas.width / 2 - canvas.leafCenterWidth / 2;
+  const gapWidth = canvas.leafCenterWidth;
+  const charWidth = ctx.measureText(chars[0] || "").width;
+  const centerX = gapLeft + (gapWidth - charWidth) / 2 + charWidth / 2;
 
   ctx.fillStyle = config.pagerColor || "black";
   ctx.font = `${fontSize}px serif`;

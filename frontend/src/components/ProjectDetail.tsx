@@ -49,12 +49,12 @@ export default function ProjectDetail() {
         setLoading(true);
         const project = await api.getProject(projectId);
         const bConfig = project.bookConfig;
+        // 先加载字体，再设置状态（避免预览在字体未加载时渲染）
+        await loadFontsToBrowser(bConfig.fonts);
         setBookConfig(bConfig);
         setCanvasConfig(project.canvasConfig);
         setTextLines(project.textLines.map((arr) => [...arr]));
         setChapterTitles(project.chapterTitles || ["序", "附录", "第一回"]);
-        // 加载字体到浏览器供 canvas 渲染
-        loadFontsToBrowser(bConfig.fonts);
       } catch (err) {
         console.error("加载项目失败:", err);
         // 项目不存在时使用默认值
@@ -97,19 +97,30 @@ export default function ProjectDetail() {
 
   // ========== 加载字体到浏览器（通过 @font-face CSS，供 Canvas 预览渲染） ==========
   const loadFontsToBrowser = useCallback(async (fonts: FontEntry[]) => {
-    const existing = document.getElementById("vrain-font-faces");
-    if (existing) return; // 已有注入，跳过
-    const css = fonts
-      .filter((f) => f.filename)
+    const fontFiles = fonts.filter((f) => f.filename);
+    if (fontFiles.length === 0) return;
+
+    // 注入 @font-face（幂等：相同 id 不重复插入）
+    let style = document.getElementById("vrain-font-faces") as HTMLStyleElement;
+    if (!style) {
+      style = document.createElement("style");
+      style.id = "vrain-font-faces";
+      document.head.appendChild(style);
+    }
+    const css = fontFiles
       .map((f) => `@font-face{font-family:"${f.name}";src:url(/api/fonts/file/${f.filename})}`)
       .join("");
-    if (!css) return;
-    const style = document.createElement("style");
-    style.id = "vrain-font-faces";
     style.textContent = css;
-    document.head.appendChild(style);
-    // 等待字体加载完成，供 Canvas 渲染使用
-    await document.fonts.ready;
+
+    // 用 document.fonts.load() 显式触发下载并等待完成
+    // document.fonts.ready 不会等待未被引用的字体，必须逐个 load
+    const loadPromises = fontFiles.map((f) =>
+      document.fonts.load(`60px "${f.name}"`, "字测试").catch((err) => {
+        console.warn(`[FontLoader] 字体 "${f.name}" 加载失败:`, err);
+      })
+    );
+    await Promise.all(loadPromises);
+    console.log("[FontLoader] 所有字体加载完成");
   }, []);
 
   // 预览 Hook — 配置+文本变更自动重建预览
@@ -150,15 +161,21 @@ export default function ProjectDetail() {
 
   // ========== 字体上传回调 ==========
   const onFontUploaded = useCallback(() => {
-    setBookConfig((prev) => ({ ...prev }));
-  }, []);
+    setBookConfig((prev) => {
+      // 异步重新加载字体
+      loadFontsToBrowser(prev.fonts).catch(console.error);
+      return { ...prev };
+    });
+  }, [loadFontsToBrowser]);
 
   const onFontAdd = useCallback((font: FontEntry) => {
-    setBookConfig((prev) => ({
-      ...prev,
-      fonts: [...prev.fonts, font],
-    }));
-  }, []);
+    setBookConfig((prev) => {
+      const newFonts = [...prev.fonts, font];
+      // 异步加载新字体（不能在同步 updater 中 await）
+      loadFontsToBrowser(newFonts).catch(console.error);
+      return { ...prev, fonts: newFonts };
+    });
+  }, [loadFontsToBrowser]);
 
   // ========== 预览交互回调 ==========
   const onPageChange = useCallback((page: number) => {

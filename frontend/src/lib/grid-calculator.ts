@@ -47,7 +47,9 @@ export function computeGridMetrics(
   rowNum: number,
   multirowsHorizontalLayout?: 0 | 1 | 2
 ): GridMetrics {
-  const { colWidth, rowHeight } = computeDimensions(canvas);
+  const { colWidth } = computeDimensions(canvas);
+  const contentHeight = canvas.height - canvas.margins.top - canvas.margins.bottom;
+  const rowHeight = contentHeight / rowNum;
 
   const colNum = canvas.leafCol;
   const multirowsNum = canvas.multiRows.enabled ? canvas.multiRows.num : 1;

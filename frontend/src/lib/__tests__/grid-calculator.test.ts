@@ -30,8 +30,8 @@ describe("computeGridMetrics", () => {
 
     // colWidth = (2480 - 50 - 50 - 120) / 24 = 2260 / 24 = 94.1667
     expect(metrics.colWidth).toBeCloseTo(94.1667, 2);
-    // rowHeight = (1860 - 200 - 50) = 1610
-    expect(metrics.rowHeight).toBe(1610);
+    // rowHeight = (1860 - 200 - 50) / 30 = 1610 / 30 = 53.6667
+    expect(metrics.rowHeight).toBeCloseTo(53.6667, 2);
     expect(metrics.colNum).toBe(24);
     expect(metrics.rowNum).toBe(30);
     expect(metrics.pageCharsNum).toBe(24 * 30); // 720

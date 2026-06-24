@@ -108,9 +108,10 @@ export function paginate(
       const isNonPositionPunctuation = isNonPositionPunct(ch, config.noPositionPunctuation);
 
       if (isNonPositionPunctuation) {
-        // 保留在当前页
+        // 保留在当前页 — 使用最后一个有效位置（避免 pcnt 越界导致 x=0,y=0 堆叠）
         const charData = characters[charIndex];
-        const pos = textPositions[pcnt] || { x: 0, y: 0 };
+        const lastValidIdx = Math.min(pcnt, textPositions.length - 1);
+        const pos = lastValidIdx >= 0 ? textPositions[lastValidIdx] : { x: 0, y: 0 };
         currentPage.characters.push({
           x: pos.x,
           y: pos.y,
@@ -139,7 +140,10 @@ export function paginate(
     if (isCommentaryChar) {
       // 批注字符不占用正文位置 (pcnt 不变)
       if (commentForIndex.char) {
-        const cpos = commentPositions[pcnt] || textPositions[pcnt] || { x: 0, y: 0 };
+        const lastValidIdx = Math.min(pcnt, commentPositions.length - 1, textPositions.length - 1);
+        const cpos = lastValidIdx >= 0
+          ? (commentPositions[lastValidIdx] || textPositions[lastValidIdx])
+          : { x: 0, y: 0 };
         currentPage.commentaries.push({
           x: cpos.x,
           y: cpos.y,
@@ -153,7 +157,8 @@ export function paginate(
     } else {
       // 普通字符
       const fontSize = config.fonts[0]?.textPointSize ?? 60;
-      const pos = textPositions[pcnt] || { x: 0, y: 0 };
+      const lastValidIdx = Math.min(pcnt, textPositions.length - 1);
+      const pos = lastValidIdx >= 0 ? textPositions[lastValidIdx] : { x: 0, y: 0 };
 
       currentPage.characters.push({
         x: pos.x,

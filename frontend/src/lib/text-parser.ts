@@ -77,8 +77,10 @@ export async function preprocessLine(
   // 7. 提取夹批
   const { s: textWithComments, commentaries } = extractCommentaries(text);
 
-  // 8. 去除段落开头 T 标记
-  const cleanedText = textWithComments.replace(/^T.{1}/, "");
+  // 8. 保留 T 标记传递到 paginate 处理（行首缩进一字）
+  // T 标记保留在文本中，由 paginate() 作为 advanceRow 控制标记处理
+  // 不再移除 T+下一个字符，让 paginate 正确计算缩进
+  const cleanedText = textWithComments;
 
   return {
     text: cleanedText,
