@@ -48,6 +48,8 @@ export interface Commentary {
   fontSize: number;
   fontFamily: string;
   color: string;
+  /** 网格行高 — drawCommentary 用它对齐正文网格，取代 fontSize 垂直间距 */
+  rowHeight: number;
   side: "left" | "right";
 }
 

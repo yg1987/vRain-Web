@@ -323,12 +323,13 @@ function drawCommentary(ctx: CanvasRenderingContext2D, cm: import("../types/layo
 
   const chars = cm.chars;
   const colWidth = cm.fontSize * 0.6; // 半字符宽
+  const rowStep = cm.rowHeight || cm.fontSize; // 用网格行高对齐正文，回退到 fontSize
 
   for (let i = 0; i < chars.length; i++) {
     const col = Math.floor(i / 2);
     const inCol = i % 2;
     const cx = cm.x + (inCol === 0 ? 0 : colWidth);
-    const cy = cm.y + col * cm.fontSize;
+    const cy = cm.y + col * rowStep;
     ctx.fillText(chars[i], cx, cy);
   }
 

@@ -248,6 +248,8 @@ function computeCommentPosition(
   const i = colIndex + 1;
   const halfCol = canvas.leafCol / 2;
 
+  // 批注 x = 列左边缘 (与原 vrain.pl 一致: 标准公式不除以 2)
+  // 正文居中于列内 (textCenterX)，批注在列左侧 (column left edge)
   let x: number;
   if (i <= halfCol) {
     x = canvas.width - canvas.margins.right - colWidth * i;

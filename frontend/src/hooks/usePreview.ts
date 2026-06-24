@@ -63,7 +63,7 @@ export function usePreview(options: UsePreviewOptions) {
 
       // 2. 解析文本文件 → 预处理字符
       const allChars: string[] = [];
-      const allCommentary: CommentaryEntry[] = [];
+      const allCommentary: (CommentaryEntry | null)[] = [];
       const allDecorationRanges: DecorationRange[] = [];
       const titles: string[] = [];
       /** 每个文件在 allChars 中的起始字符索引 */
@@ -97,11 +97,24 @@ export function usePreview(options: UsePreviewOptions) {
           allDecorationRanges.push(...newRanges);
 
           const chars = [...cleanText];
+          const paraStartGlobal = allChars.length; // 本段落在 allChars 中的起始位置
+
+          // 填充空条目使 allCommentary 与 allChars 长度一致
+          for (let i = 0; i < chars.length; i++) {
+            allCommentary.push(null);
+          }
           allChars.push(...chars);
 
-          // 批注
+          // 批注: 按原文位置插入到 allCommentary 稀疏数组中
+          // cm.position 是批注在 para.text（装饰剥离前）中的位置，
+          // 需减去在其之前被 extractDecorationRanges 剥离的装饰括号符数量
           for (const cm of para.commentaries) {
-            allCommentary.push({ char: cm, isCommentary: true });
+            const adjustedPos = adjustCommentaryPosition(para.text, cm.position);
+            const localPos = Math.min(adjustedPos, chars.length - 1);
+            const globalPos = paraStartGlobal + localPos;
+            if (globalPos >= 0 && globalPos < allCommentary.length) {
+              allCommentary[globalPos] = { char: cm.content, isCommentary: true };
+            }
           }
         }
 
@@ -261,6 +274,40 @@ export function usePreview(options: UsePreviewOptions) {
     toggleCover,
     setZoom,
   };
+}
+
+/**
+ * 调整批注位置: 减去装饰剥离前在指定位置之前被移除的括号符数量
+ *
+ * extractDecorationRanges 剥离装饰标记对（如〈〉〔〕《》）时只移除括号符，
+ * 内容保留。本函数扫描 para.text，统计在 position 之前有多少个成对括号被剥离，
+ * 返回调整后的位置。
+ */
+function adjustCommentaryPosition(text: string, position: number): number {
+  const OPEN_BRACKETS = '《〔〈｛＜［（';
+  const CLOSE_MAP: Record<string, string> = {
+    '《': '》', '〔': '〕', '〈': '〉',
+    '｛': '｝', '＜': '＞', '［': '］', '（': '）',
+  };
+
+  let stripped = 0;
+  let i = 0;
+  while (i < position && i < text.length) {
+    const ch = text[i];
+    if (OPEN_BRACKETS.includes(ch)) {
+      const close = CLOSE_MAP[ch];
+      if (close) {
+        const closeIdx = text.indexOf(close, i + 1);
+        if (closeIdx !== -1 && closeIdx < position) {
+          stripped += 2; // 开括号 + 闭括号
+          i = closeIdx + 1;
+          continue;
+        }
+      }
+    }
+    i++;
+  }
+  return position - stripped;
 }
 
 /**

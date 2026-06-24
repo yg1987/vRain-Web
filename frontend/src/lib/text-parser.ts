@@ -23,7 +23,7 @@ import { simplifyToTraditional } from "./simp-trad";
 /** 预处理后的文本段落 */
 export interface ProcessedParagraph {
   text: string;         // 正文 (不含批注)
-  commentaries: string[]; // 提取的批注
+  commentaries: CommentaryItem[]; // 提取的批注（含位置）
   paddingSpaces: number; // 填充空格数 (使列高对齐)
 }
 
@@ -197,30 +197,53 @@ function applyOnlyPeriodMode(text: string, pattern: string): string {
 }
 
 /**
+ * 批注条目 — 包含内容和在预处理后文本中的位置
+ */
+export interface CommentaryItem {
+  content: string;
+  /** 在 extractCommentaries 清理后文本中的字符偏移（即【】移除后的位置） */
+  position: number;
+}
+
+/**
  * 提取夹批 【text】
- * 返回: 清理后的正文 + 提取的批注数组
+ * 返回: 清理后的正文 + 提取的批注数组（含位置信息）
  */
 function extractCommentaries(text: string): {
   s: string;
-  commentaries: string[];
+  commentaries: CommentaryItem[];
 } {
-  const commentaries: string[] = [];
+  const rawMatches: { content: string; originalIndex: number; length: number }[] = [];
   const regex = /【([^】]*)】/g;
-
-  let result = text;
   let match;
 
+  // 第一遍：收集所有匹配
   while ((match = regex.exec(text)) !== null) {
     const content = match[1];
     if (content) {
-      commentaries.push(content);
+      rawMatches.push({
+        content,
+        originalIndex: match.index,
+        length: match[0].length, // 含【】的总长度
+      });
     }
   }
 
-  // 移除所有 【】 标记
-  result = result.replace(/【[^】]*】/g, "");
+  // 计算清理后文本中的位置（减去前面已移除的字符）
+  const commentaries: CommentaryItem[] = [];
+  let totalRemoved = 0;
+  for (const rm of rawMatches) {
+    commentaries.push({
+      content: rm.content,
+      position: rm.originalIndex - totalRemoved,
+    });
+    totalRemoved += rm.length;
+  }
 
-  return { s: result, commentaries };
+  // 移除所有 【】 标记
+  const cleaned = text.replace(/【[^】]*】/g, "");
+
+  return { s: cleaned, commentaries };
 }
 
 /**

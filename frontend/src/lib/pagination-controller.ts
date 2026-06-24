@@ -35,7 +35,7 @@ export function paginate(
   config: BookConfig,
   grid: Grid,
   characters: string[],
-  commentaryData: CommentaryEntry[],
+  commentaryData: (CommentaryEntry | null)[],
   decorations: Decoration[],
   textPositions: Position[] = [],
   commentPositions: Position[] = []
@@ -133,29 +133,27 @@ export function paginate(
       pcnt = 0;
     }
 
-    // 处理批注数据
+    // 处理批注数据 — 批注不占用正文位置 (pcnt 不变)，也不取代同位置的正文字符
     const commentForIndex = commentaryData[charIndex];
-    const isCommentaryChar = commentForIndex && commentForIndex.isCommentary;
+    if (commentForIndex != null && commentForIndex.isCommentary && commentForIndex.char) {
+      const lastValidIdx = Math.min(pcnt, commentPositions.length - 1, textPositions.length - 1);
+      const cpos = lastValidIdx >= 0
+        ? (commentPositions[lastValidIdx] || textPositions[lastValidIdx])
+        : { x: 0, y: 0 };
+      currentPage.commentaries.push({
+        x: cpos.x,
+        y: cpos.y,
+        chars: [...commentForIndex.char],
+        fontSize: config.fonts[0]?.commentPointSize ?? 45,
+        fontFamily: config.commentFontFamily || "serif",
+        color: config.commentFontColor,
+        side: "right",
+        rowHeight: grid.rowHeight,
+      });
+    }
 
-    if (isCommentaryChar) {
-      // 批注字符不占用正文位置 (pcnt 不变)
-      if (commentForIndex.char) {
-        const lastValidIdx = Math.min(pcnt, commentPositions.length - 1, textPositions.length - 1);
-        const cpos = lastValidIdx >= 0
-          ? (commentPositions[lastValidIdx] || textPositions[lastValidIdx])
-          : { x: 0, y: 0 };
-        currentPage.commentaries.push({
-          x: cpos.x,
-          y: cpos.y,
-          chars: [commentForIndex.char],
-          fontSize: config.fonts[0]?.commentPointSize ?? 45,
-          fontFamily: config.commentFontFamily || "serif",
-          color: config.commentFontColor,
-          side: "right",
-        });
-      }
-    } else {
-      // 普通字符
+    // 普通字符 — 无论同位置是否有批注，正文都要渲染
+    {
       const fontSize = config.fonts[0]?.textPointSize ?? 60;
       const lastValidIdx = Math.min(pcnt, textPositions.length - 1);
       const pos = lastValidIdx >= 0 ? textPositions[lastValidIdx] : { x: 0, y: 0 };
