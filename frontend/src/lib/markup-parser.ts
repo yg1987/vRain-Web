@@ -39,6 +39,18 @@ export interface DecorationRange {
   color: string;
 }
 
+/** 字体放大区间 — （）包裹的字符需缩放渲染 */
+export interface TextZoomRange {
+  /** 在净化后文本中的起始字符索引 */
+  startCharIndex: number;
+  /** 在净化后文本中的结束字符索引 (exclusive) */
+  endCharIndex: number;
+  /** 缩放因子 (如 1.5 = 放大 50%) */
+  zoomFactor: number;
+  /** 放大文字颜色 (默认红色以醒目) */
+  color?: string;
+}
+
 /** 解析结果 */
 export interface ParseResult {
   /** 正文字符序列 (不含标记符本身) */
@@ -68,8 +80,9 @@ export function extractDecorationRanges(
   config: BookConfig,
   /** 当前文本片段在整个字符流中的起始偏移 */
   baseOffset: number,
-): { cleanText: string; ranges: DecorationRange[] } {
+): { cleanText: string; ranges: DecorationRange[]; zoomRanges: TextZoomRange[] } {
   const ranges: DecorationRange[] = [];
+  const zoomRanges: TextZoomRange[] = [];
   let cleanText = "";
   let i = 0;
 
@@ -133,12 +146,19 @@ export function extractDecorationRanges(
       }
     }
 
-    // 字体放大 （text） — 不生成 Decoration，设置 zoom 标记给后续处理
+    // 字体放大 （text） — 记录区间供后续 scale 处理
     if (ch === "（" && config.decorativeMarks.textZoom.enabled) {
       const endIdx = text.indexOf("）", i + 1);
       if (endIdx !== -1) {
-        // 保留正文，但由后续步骤处理缩放
+        const startCleanIdx = cleanText.length;
         cleanText += text.slice(i + 1, endIdx);
+        const endCleanIdx = cleanText.length;
+        zoomRanges.push({
+          startCharIndex: baseOffset + startCleanIdx,
+          endCharIndex: baseOffset + endCleanIdx,
+          zoomFactor: config.decorativeMarks.textZoom.zoomFactor,
+          color: config.decorativeMarks.textZoom.color,
+        });
         i = endIdx + 1;
         continue;
       }
@@ -206,7 +226,7 @@ export function extractDecorationRanges(
     i++;
   }
 
-  return { cleanText, ranges };
+  return { cleanText, ranges, zoomRanges };
 }
 
 // ============================================================================

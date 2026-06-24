@@ -38,7 +38,8 @@ export function paginate(
   commentaryData: (CommentaryEntry | null)[],
   decorations: Decoration[],
   textPositions: Position[] = [],
-  commentPositions: Position[] = []
+  commentPositions: Position[] = [],
+  zoomByIndex: Record<number, { zoomFactor: number; color?: string }> = {}
 ): PaginatedResult {
   const { colNum, rowNum, pageCharsNum } = grid;
   const pages: Page[] = [];
@@ -157,6 +158,7 @@ export function paginate(
       const fontSize = config.fonts[0]?.textPointSize ?? 60;
       const lastValidIdx = Math.min(pcnt, textPositions.length - 1);
       const pos = lastValidIdx >= 0 ? textPositions[lastValidIdx] : { x: 0, y: 0 };
+      const zoomInfo = zoomByIndex[charIndex];
 
       currentPage.characters.push({
         x: pos.x,
@@ -164,9 +166,9 @@ export function paginate(
         char: ch,
         fontFamily: config.textFontFamily || "serif",
         fontSize,
-        scale: 1,
+        scale: zoomInfo?.zoomFactor || 1,
         rotation: 0,
-        color: config.textFontColor,
+        color: zoomInfo?.color || config.textFontColor,
         isCommentary: false,
       });
       pcnt++;

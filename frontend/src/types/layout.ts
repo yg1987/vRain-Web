@@ -202,7 +202,7 @@ export interface BookConfig {
     bookLine: { enabled: boolean; width: number; color: string };
     rectFrame: { enabled: boolean; borderType: 0 | 1; borderColor: string; fillColor: string };
     circleFrame: { enabled: boolean; borderType: 0 | 1; borderColor: string; fillColor: string };
-    textZoom: { enabled: boolean; zoomFactor: number };
+    textZoom: { enabled: boolean; zoomFactor: number; color: string };
     circleNote: { enabled: boolean; offset: { x: number; y: number }; radius: number; width: number; color: string };
     pointNote: { enabled: boolean; offset: { x: number; y: number }; size: number; color: string };
     lineNote: { enabled: boolean; offset: { x: number; y: number }; width: number; color: string };

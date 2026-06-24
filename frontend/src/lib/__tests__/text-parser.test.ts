@@ -56,7 +56,7 @@ function makeConfig(partial: Partial<BookConfig>): BookConfig {
       bookLine: { enabled: true, width: 2, color: "black" },
       rectFrame: { enabled: true, borderType: 1, borderColor: "black", fillColor: "black" },
       circleFrame: { enabled: false, borderType: 1, borderColor: "black", fillColor: "white" },
-      textZoom: { enabled: true, zoomFactor: 1.1 },
+      textZoom: { enabled: true, zoomFactor: 1.1, color: "#cc0000" },
       circleNote: { enabled: true, offset: { x: 0.25, y: 0.3 }, radius: 0.15, width: 6, color: "#874434" },
       pointNote: { enabled: true, offset: { x: -0.25, y: 0 }, size: 1.2, color: "#874434" },
       lineNote: { enabled: true, offset: { x: 0.4, y: -0.25 }, width: 7, color: "#874434" },

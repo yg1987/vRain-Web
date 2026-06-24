@@ -48,7 +48,7 @@ function makeConfig(): BookConfig {
       bookLine: { enabled: false, width: 0, color: "black" },
       rectFrame: { enabled: false, borderType: 0, borderColor: "black", fillColor: "black" },
       circleFrame: { enabled: false, borderType: 0, borderColor: "black", fillColor: "white" },
-      textZoom: { enabled: false, zoomFactor: 1 },
+      textZoom: { enabled: false, zoomFactor: 1, color: "#cc0000" },
       circleNote: { enabled: false, offset: { x: 0, y: 0 }, radius: 0, width: 0, color: "black" },
       pointNote: { enabled: false, offset: { x: 0, y: 0 }, size: 0, color: "black" },
       lineNote: { enabled: false, offset: { x: 0, y: 0 }, width: 0, color: "black" },

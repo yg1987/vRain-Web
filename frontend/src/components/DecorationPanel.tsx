@@ -96,10 +96,12 @@ export default function DecorationPanel({ bookConfig, onChange }: Props) {
           onChange={(v) => update({ textZoom: { ...marks.textZoom, enabled: v } })}
         />
         {marks.textZoom.enabled && (
-          <div className="mt-2 ml-6">
+          <div className="mt-2 ml-6 space-y-2">
             <NumberSlider label="放大倍数" value={marks.textZoom.zoomFactor}
               min={1.0} max={2.0} step={0.05}
               onChange={(v) => update({ textZoom: { ...marks.textZoom, zoomFactor: v } })} />
+            <ColorInput label="颜色" value={marks.textZoom.color}
+              onChange={(v) => update({ textZoom: { ...marks.textZoom, color: v } })} />
           </div>
         )}
       </div>

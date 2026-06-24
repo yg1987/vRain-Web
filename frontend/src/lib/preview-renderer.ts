@@ -298,16 +298,21 @@ function drawVerticalText(
 function drawCharacter(ctx: CanvasRenderingContext2D, char: import("../types/layout").Character) {
   ctx.save();
   ctx.fillStyle = char.color || "black";
-  ctx.font = `${char.fontSize}px "${char.fontFamily}", serif`;
+  const scale = char.scale || 1;
+  const fontSize = char.fontSize * scale;
+  ctx.font = `${fontSize}px "${char.fontFamily}", serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
   if (char.rotation) {
     ctx.translate(char.x, char.y);
     ctx.rotate((char.rotation * Math.PI) / 180);
+    ctx.scale(scale, scale);
     ctx.fillText(char.char, 0, 0);
   } else {
-    ctx.fillText(char.char, char.x, char.y);
+    ctx.translate(char.x, char.y);
+    ctx.scale(scale, scale);
+    ctx.fillText(char.char, 0, 0);
   }
 
   ctx.restore();
@@ -397,8 +402,24 @@ function drawDecoration(ctx: CanvasRenderingContext2D, dec: import("../types/lay
       }
       break;
     case "rectFrame":
-      // 圆角矩形框
-      ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+      // 圆角矩形框 (仿 vRain draw_rect0/1)
+      {
+        const radius = 8; // 圆角半径
+        const w = x2 - x1;
+        const h = y2 - y1;
+        ctx.beginPath();
+        ctx.moveTo(x1 + radius, y1);
+        ctx.lineTo(x2 - radius, y1);
+        ctx.arcTo(x2, y1, x2, y1 + radius, radius);
+        ctx.lineTo(x2, y2 - radius);
+        ctx.arcTo(x2, y2, x2 - radius, y2, radius);
+        ctx.lineTo(x1 + radius, y2);
+        ctx.arcTo(x1, y2, x1, y2 - radius, radius);
+        ctx.lineTo(x1, y1 + radius);
+        ctx.arcTo(x1, y1, x1 + radius, y1, radius);
+        ctx.closePath();
+        ctx.stroke();
+      }
       break;
     case "circleFrame":
       // 圆圈 — 逐字绘制

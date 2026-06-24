@@ -154,6 +154,7 @@ export function parseBookConfig(raw: ConfigMap): BookConfig {
       textZoom: {
         enabled: bool("if_tag_textzoom"),
         zoomFactor: float("text_zoom", 1.1),
+        color: "#cc0000",
       },
       circleNote: {
         enabled: bool("if_tag_circlenote"),

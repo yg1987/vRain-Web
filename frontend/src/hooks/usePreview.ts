@@ -13,7 +13,7 @@ import { paginate } from "../lib/pagination-controller";
 import { preprocessLine, parseTextFile } from "../lib/text-parser";
 import { renderPages } from "../lib/preview-renderer";
 import { extractDecorationRanges, resolveDecorationRanges, assignDecorationsToPages } from "../lib/markup-parser";
-import type { DecorationRange } from "../lib/markup-parser";
+import type { DecorationRange, TextZoomRange } from "../lib/markup-parser";
 
 export interface PreviewState {
   pages: Page[];
@@ -65,6 +65,7 @@ export function usePreview(options: UsePreviewOptions) {
       const allChars: string[] = [];
       const allCommentary: (CommentaryEntry | null)[] = [];
       const allDecorationRanges: DecorationRange[] = [];
+      const allZoomRanges: TextZoomRange[] = [];
       const titles: string[] = [];
       /** 每个文件在 allChars 中的起始字符索引 */
       const fileCharStart: number[] = [];
@@ -89,12 +90,13 @@ export function usePreview(options: UsePreviewOptions) {
         // 拼接字符（同时剥离装饰标记符，记录装饰范围）
         for (const para of parsed.paragraphs) {
           // 提取装饰范围并得到净化后的文本
-          const { cleanText, ranges: newRanges } = extractDecorationRanges(
+          const { cleanText, ranges: newRanges, zoomRanges: newZoomRanges } = extractDecorationRanges(
             para.text,
             bookConfig,
             allChars.length, // 当前全局偏移
           );
           allDecorationRanges.push(...newRanges);
+          allZoomRanges.push(...newZoomRanges);
 
           const chars = [...cleanText];
           const paraStartGlobal = allChars.length; // 本段落在 allChars 中的起始位置
@@ -126,7 +128,15 @@ export function usePreview(options: UsePreviewOptions) {
         }
       }
 
-      // 3. 分页
+      // 3. 构建字缩放映射 (allChars 索引 → { zoomFactor, color? })
+      const zoomByIndex: Record<number, { zoomFactor: number; color?: string }> = {};
+      for (const zr of allZoomRanges) {
+        for (let i = zr.startCharIndex; i < zr.endCharIndex; i++) {
+          zoomByIndex[i] = { zoomFactor: zr.zoomFactor, color: zr.color };
+        }
+      }
+
+      // 4. 分页
       const paginated = paginate(
         canvasConfig,
         bookConfig,
@@ -136,9 +146,10 @@ export function usePreview(options: UsePreviewOptions) {
         [], // 装饰由 resolveDecorationRanges 后处理
         positions.textPositions,
         positions.commentPositions,
+        zoomByIndex,
       );
 
-      // 4. 构建 Page IR（同时为每页标记所属文件索引）
+      // 5. 构建 Page IR（同时为每页标记所属文件索引）
       /** 累计字符数，用于判断每页属于哪个文件 */
       let cumChars = 0;
       let pages: Page[] = paginated.pages.map((pg, idx) => {
@@ -160,7 +171,7 @@ export function usePreview(options: UsePreviewOptions) {
         };
       });
 
-      // 5. 装饰标记 → 像素坐标 → 分配到各页
+      // 6. 装饰标记 → 像素坐标 → 分配到各页
       if (allDecorationRanges.length > 0) {
         const resolved = resolveDecorationRanges(pages, allDecorationRanges, bookConfig);
         pages = assignDecorationsToPages(pages, resolved, allDecorationRanges);
