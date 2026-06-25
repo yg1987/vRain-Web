@@ -159,10 +159,16 @@ export function usePreview(options: UsePreviewOptions) {
       );
 
       // 5. 构建 Page IR（同时为每页标记所属文件索引）
+      // 将 fileCharStart 从 allChars 坐标转换为平面页面坐标（跳过 % 等控制标记）
+      const fileFlatStart: number[] = fileCharStart.map((start) => {
+        let i = start;
+        while (i < paginated.charIndexMap.length && paginated.charIndexMap[i] < 0) i++;
+        return i < paginated.charIndexMap.length ? paginated.charIndexMap[i] : Infinity;
+      });
       /** 累计字符数，用于判断每页属于哪个文件 */
       let cumChars = 0;
       let pages: Page[] = paginated.pages.map((pg, idx) => {
-        const pageFileIndex = findFileIndex(cumChars, cumChars + pg.characters.length, fileCharStart);
+        const pageFileIndex = findFileIndex(cumChars, cumChars + pg.characters.length, fileFlatStart);
         cumChars += pg.characters.length;
         // 用文件索引（而非页码）查找标题，确保多页文件的每一页都显示正确的标题
         const pageTitle = titles[pageFileIndex] || bookConfig.title;
@@ -257,6 +263,16 @@ export function usePreview(options: UsePreviewOptions) {
     },
     [bookConfig, canvasConfig],
   );
+
+  // totalPages 变化时 clamp currentPage，避免切画布后页码指示器不更新
+  useEffect(() => {
+    setState((s) => {
+      if (s.totalPages > 0 && s.currentPage > s.totalPages) {
+        return { ...s, currentPage: s.totalPages };
+      }
+      return s;
+    });
+  }, [state.totalPages]);
 
   // 配置变更 → 重建 IR → 渲染
   useEffect(() => {

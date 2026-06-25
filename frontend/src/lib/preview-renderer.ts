@@ -160,7 +160,8 @@ function drawPage(ctx: CanvasRenderingContext2D, page: Page, bookConfig: BookCon
   // 版心页码
   drawPageNumber(ctx, page.pageNumber, bookConfig, page.canvas);
 
-  // 批注背景色 — 按 cmBlockId 分块
+  // 批注背景色 — 按 cmBlockId + 列分组
+  // 预计算所有列中心，每个字符按最近列中心归类，处理 ±0.22*colW 偏移及任意画布设置
   const cmChars = page.characters.filter(ch => ch.isCommentary && ch.backgroundColor && ch.cmBlockId != null);
   const blockMap = new Map<number, typeof cmChars>();
   for (const c of cmChars) {
@@ -168,17 +169,50 @@ function drawPage(ctx: CanvasRenderingContext2D, page: Page, bookConfig: BookCon
     list.push(c);
     blockMap.set(c.cmBlockId!, list);
   }
-  for (const [, chars] of blockMap) {
-    const minX = Math.min(...chars.map(c => c.x));
-    const maxX = Math.max(...chars.map(c => c.x));
-    const minY = Math.min(...chars.map(c => c.y));
-    const maxY = Math.max(...chars.map(c => c.y));
-    const pad = chars[0].fontSize * 0.55;
-    ctx.save();
-    ctx.fillStyle = chars[0].backgroundColor!;
-    ctx.fillRect(minX - pad, minY - pad, maxX - minX + pad * 2, maxY - minY + pad * 2);
-    ctx.restore();
+  const { margins, leafCenterWidth, leafCol } = page.canvas;
+  const usableWidth = page.canvas.width - margins.left - margins.right - leafCenterWidth;
+  const colW = usableWidth / leafCol;
+  const halfCol = leafCol / 2;
+  // 预计算所有列的中心 x 坐标
+  const colCenters: number[] = [];
+  for (let ci = 1; ci <= leafCol; ci++) {
+    colCenters.push(
+      ci <= halfCol
+        ? page.canvas.width - margins.right - colW * ci + colW / 2
+        : page.canvas.width - margins.right - colW * ci - leafCenterWidth + colW / 2,
+    );
   }
+  for (const [, chars] of blockMap) {
+    // 每个字符归到最近的列中心
+    const colGroups = new Map<number, typeof chars>();
+    for (const c of chars) {
+      let nearest = 0;
+      let minDist = Math.abs(c.x - colCenters[0]);
+      for (let i = 1; i < colCenters.length; i++) {
+        const dist = Math.abs(c.x - colCenters[i]);
+        if (dist < minDist) { minDist = dist; nearest = i; }
+      }
+      const group = colGroups.get(nearest) || [];
+      group.push(c);
+      colGroups.set(nearest, group);
+    }
+    for (const [colIdx, group] of colGroups) {
+      const i = colIdx + 1;
+      const colLeft = i <= halfCol
+        ? page.canvas.width - margins.right - colW * i
+        : page.canvas.width - margins.right - colW * i - leafCenterWidth;
+      const colRight = colLeft + colW;
+      const minY = Math.min(...group.map(c => c.y));
+      const maxY = Math.max(...group.map(c => c.y));
+      const pad = group[0].fontSize * 0.55;
+      ctx.save();
+      ctx.fillStyle = group[0].backgroundColor!;
+      ctx.fillRect(colLeft, minY - pad, colRight - colLeft, maxY - minY + pad * 2);
+      ctx.restore();
+    }
+  }
+  // 跨列夹批背景可能遮盖列分隔线，在此重画一遍列线
+  drawColumnLines(ctx, page.canvas);
 
   // 装饰的填充层 — 在文字之前绘制，避免遮盖文字
   const textFontSize = bookConfig.fonts[0]?.textPointSize ?? 60;
@@ -257,6 +291,23 @@ function drawBorders(ctx: CanvasRenderingContext2D, canvas: CanvasConfig) {
       ctx.lineTo(canvas.width - margins.right, y);
       ctx.stroke();
     }
+  }
+}
+
+/** 单独绘制列分隔线 — 用于跨列夹批背景覆盖后重画 */
+function drawColumnLines(ctx: CanvasRenderingContext2D, canvas: CanvasConfig) {
+  const { margins, innerBorder, leafCenterWidth, leafCol } = canvas;
+  const usableWidth = canvas.width - margins.left - margins.right - leafCenterWidth;
+  const colWidth = usableWidth / leafCol;
+  ctx.strokeStyle = innerBorder.color || "black";
+  ctx.lineWidth = innerBorder.width || 1;
+  for (let cid = 1; cid <= leafCol; cid++) {
+    const wd = cid > leafCol / 2 ? leafCenterWidth - colWidth : 0;
+    const x = margins.left + wd + colWidth * cid;
+    ctx.beginPath();
+    ctx.moveTo(x, margins.top);
+    ctx.lineTo(x, canvas.height - margins.bottom);
+    ctx.stroke();
   }
 }
 

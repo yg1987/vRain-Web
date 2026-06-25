@@ -62,7 +62,107 @@ export function paginate(
   let charIndex = 0; // 当前字符索引
   let commentBuffer: CommentaryEntry[] = []; // 跨页批注缓冲
 
+  // 跨列夹批状态 — 当前列放不下时缓存剩余行，在下个循环迭代中从新列顶部继续
+  let pendingCM: {
+    rightCol: string[];
+    leftCol: string[];
+    cmFontSize: number;
+    cmColor: string;
+    cmBg: string | undefined;
+    cmBlockId: number;
+    rowOffset: number;      // 已渲染的行数
+    totalCharCount: number;  // 累计总字符数 (所有批次)
+  } | null = null;
+
   while (charIndex < characters.length) {
+    // ---- 优先消费未完成的跨列夹批 ----
+    if (pendingCM) {
+      const { rightCol, leftCol, cmFontSize, cmColor, cmBg, cmBlockId, rowOffset } = pendingCM;
+      const remainingRight = rightCol.slice(rowOffset);
+      const remainingLeft = leftCol.slice(rowOffset);
+      const cmSpacing = cmFontSize * 1.35;
+
+      // 计算当前列剩余空间能放几行夹批
+      // startY 是当前格子中心，所以第一行只有半格的空间
+      const rowsInCol = grid.rowNum - (pcnt % grid.rowNum);
+      const effectiveRemainingPixels = (rowsInCol - 0.5) * grid.rowHeight;
+      // 连一行都放不下时，直接推进到下列
+      if (effectiveRemainingPixels < cmSpacing && rowsInCol > 0) {
+        const nextColStart = (Math.floor(pcnt / grid.rowNum) + 1) * grid.rowNum;
+        if (nextColStart >= pageCharsNum) {
+          pages.push({ ...currentPage });
+          currentPage = createNewPage(pages.length + 1, canvas);
+          pcnt = 0;
+        } else {
+          pcnt = nextColStart;
+        }
+        continue;
+      }
+      const rowsFit = Math.min(
+        remainingRight.length,
+        Math.floor(effectiveRemainingPixels / cmSpacing),
+      );
+
+      const startY = textPositions.length > 0 && pcnt < textPositions.length
+        ? textPositions[Math.min(pcnt, textPositions.length - 1)]?.y ?? 0 : 0;
+
+      const consumedGridRows = Math.max(1, Math.ceil(rowsFit * cmSpacing / grid.rowHeight));
+      let batchCharCount = 0;
+
+      for (let row = 0; row < rowsFit; row++) {
+        const rowY = startY + row * cmSpacing;
+        const colIdx = Math.min(pcnt + Math.floor(row * cmSpacing / grid.rowHeight), textPositions.length - 1);
+        const colPos = colIdx >= 0 ? textPositions[colIdx] : { x: 0, y: 0 };
+        const rightColX = colPos.x + grid.colWidth * 0.22;
+        const leftColX = colPos.x - grid.colWidth * 0.22;
+
+        // 右列
+        currentPage.characters.push({
+          x: rightColX, y: rowY, char: remainingRight[row],
+          fontFamily: config.commentFontFamily || "serif",
+          fontSize: cmFontSize, scale: 1, rotation: 0,
+          color: cmColor, backgroundColor: cmBg,
+          isCommentary: true, cmBlockId: cmBlockId,
+        });
+        batchCharCount++;
+        flatIdx++;
+
+        // 左列
+        if (row < remainingLeft.length) {
+          currentPage.characters.push({
+            x: leftColX, y: rowY, char: remainingLeft[row],
+            fontFamily: config.commentFontFamily || "serif",
+            fontSize: cmFontSize, scale: 1, rotation: 0,
+            color: cmColor, backgroundColor: cmBg,
+            isCommentary: true, cmBlockId: cmBlockId,
+          });
+          batchCharCount++;
+          flatIdx++;
+        }
+      }
+
+      const newOffset = rowOffset + rowsFit;
+      pendingCM.totalCharCount += batchCharCount;
+      pcnt += consumedGridRows;
+
+      if (newOffset >= rightCol.length) {
+        // 全部完成，记录总字符数
+        commentaryFlatCount[charIndex] = pendingCM.totalCharCount;
+        pendingCM = null;
+      } else {
+        pendingCM = { ...pendingCM, rowOffset: newOffset };
+      }
+
+      // 批次渲染后检查是否溢出当前页
+      if (pcnt >= pageCharsNum) {
+        pages.push({ ...currentPage });
+        currentPage = createNewPage(pages.length + 1, canvas);
+        pcnt = 0;
+      }
+
+      continue; // 不推进 charIndex，正文字符等夹批全部完成后再渲染
+    }
+
     const ch = characters[charIndex];
 
     // 检查分页标记
@@ -145,9 +245,9 @@ export function paginate(
       pcnt = 0;
     }
 
-    // 处理批注数据 — 批注占正文网格位 (逐对推 Character, 推进 pcnt)
+    // 处理批注数据 — 流式：当前列能放几行就放几行，剩余跨列延续
     const commentForIndex = commentaryData[charIndex];
-    if (config.decorativeMarks.commentary?.enabled !== false && commentForIndex != null && commentForIndex.isCommentary && commentForIndex.char) {
+    if (config.decorativeMarks.commentary?.enabled !== false && commentForIndex != null && commentForIndex.isCommentary && commentForIndex.char && charIndexMap[charIndex] === -1) {
       const cmChars = [...commentForIndex.char];
       const cmFontSize = config.fonts[0]?.commentPointSize ?? 30;
       const cmColor = config.decorativeMarks.commentary?.color || config.commentFontColor;
@@ -157,66 +257,15 @@ export function paginate(
       const half = Math.ceil(cmChars.length / 2);
       const rightCol = cmChars.slice(0, half);
       const leftCol = cmChars.slice(half);
-      // 逐行配对，紧密排列 (行间距 = 批注字号)
-      const cmSpacing = cmFontSize * 1.35;
-      // 预计算批注占用的网格行数
-      const cmGridRows = Math.max(1, Math.ceil(rightCol.length * cmSpacing / grid.rowHeight));
-      // 检查当前列剩余行是否够放下整个夹批
-      const rowsRemainingInCol = grid.rowNum - (pcnt % grid.rowNum);
-      if (cmGridRows > rowsRemainingInCol) {
-        // 当前列装不下，跳到下一列开头
-        const nextColStart = (Math.floor(pcnt / grid.rowNum) + 1) * grid.rowNum;
-        if (nextColStart >= pageCharsNum) {
-          // 已是最后一列，推到新页
-          pages.push({ ...currentPage });
-          currentPage = createNewPage(pages.length + 1, canvas);
-          pcnt = 0;
-        } else {
-          pcnt = nextColStart;
-        }
-      }
-      let cmCharCount = 0;
-      const startY = textPositions.length > 0 && pcnt < textPositions.length
-        ? textPositions[Math.min(pcnt, textPositions.length - 1)]?.y ?? 0 : 0;
-      for (let row = 0; row < rightCol.length; row++) {
-        const rowY = startY + row * cmSpacing;
-        // x 取自当前网格列
-        const colIdx = Math.min(pcnt + Math.floor(row * cmSpacing / grid.rowHeight), textPositions.length - 1);
-        const colPos = colIdx >= 0 ? textPositions[colIdx] : { x: 0, y: 0 };
-        const rightColX = colPos.x + grid.colWidth * 0.22;
-        const leftColX = colPos.x - grid.colWidth * 0.22;
 
-        // 右列（先读）
-        currentPage.characters.push({
-          x: rightColX, y: rowY, char: rightCol[row],
-          fontFamily: config.commentFontFamily || "serif",
-          fontSize: cmFontSize, scale: 1, rotation: 0,
-          color: cmColor,
-          backgroundColor: cmBg,
-          isCommentary: true,
-          cmBlockId: curBlockId,
-        });
-        cmCharCount++;
-        flatIdx++;
-
-        // 左列（后读）
-        if (row < leftCol.length) {
-          currentPage.characters.push({
-            x: leftColX, y: rowY, char: leftCol[row],
-            fontFamily: config.commentFontFamily || "serif",
-            fontSize: cmFontSize, scale: 1, rotation: 0,
-            color: cmColor,
-            backgroundColor: cmBg,
-            isCommentary: true,
-            cmBlockId: curBlockId,
-          });
-          cmCharCount++;
-          flatIdx++;
-        }
-      }
+      // 设置待处理夹批，由 while 循环顶部的 pendingCM 消费块逐批渲染
+      pendingCM = {
+        rightCol, leftCol, cmFontSize, cmColor, cmBg, cmBlockId: curBlockId,
+        rowOffset: 0,
+        totalCharCount: 0,
+      };
       charIndexMap[charIndex] = 0; // 标记非跳过
-      pcnt += cmGridRows;
-      commentaryFlatCount[charIndex] = cmCharCount;
+      continue; // 跳回循环顶部，由 pending 消费块处理第一批
     }
 
     // 普通字符 — 无论同位置是否有批注，正文都要渲染
