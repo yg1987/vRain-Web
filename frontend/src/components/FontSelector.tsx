@@ -75,7 +75,11 @@ export default function FontSelector({
     [textFontFamily, textFontSize, commentFontSize, coverTitleFontFamily, coverTitleFontSize, onChange],
   );
   const handleCommentSize = useCallback(
-    (v: number) => onChange(textFontFamily, commentFontFamily, textFontSize, v, coverTitleFontFamily, coverTitleFontSize),
+    (v: number) => {
+      // 批注字号 ≤ 正文一半，确保双列小字不超列宽
+      const clamped = Math.max(12, Math.min(v, Math.floor(textFontSize / 2)));
+      onChange(textFontFamily, commentFontFamily, textFontSize, clamped, coverTitleFontFamily, coverTitleFontSize);
+    },
     [textFontFamily, commentFontFamily, textFontSize, coverTitleFontFamily, coverTitleFontSize, onChange],
   );
 

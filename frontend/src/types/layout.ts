@@ -68,10 +68,18 @@ export interface Decoration {
   bounds: { x1: number; y1: number; x2: number; y2: number };
   strokeWidth: number;
   color: string;
+  /** 填充色 (圆圈、圆角框支持) */
+  fillColor?: string;
   /** 逐字坐标 (供逐字渲染的装饰类型使用) */
   charPositions?: Position[];
   /** 所属页面索引 (resolveDecorationRanges 自动填充) */
   pageIndex?: number;
+  // 圈注/点注/行注 — 像素级偏移和尺寸 (由 resolveDecorationRanges 根据 fontSize 计算)
+  noteOffsetX?: number;
+  noteOffsetY?: number;
+  noteRadius?: number;   // 圈注圆半径
+  noteSize?: number;     // 顿点注字号
+  noteHeight?: number;   // 行注半高
 }
 
 // ========================

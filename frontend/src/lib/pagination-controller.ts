@@ -20,6 +20,8 @@ export interface PaginatedResult {
   controlMarks: ControlMarkWithIndex[];
   /** allChars 索引 → 展平的 Page.characters 数组中的索引 (-1 = 控制标记未入页) */
   charIndexMap: number[];
+  /** 每个 allChars 位置产生的批注字符数 (0 = 无批注, N = 批注字符数) */
+  commentaryFlatCount: number[];
 }
 
 // ControlMarkWithIndex now imported from types/layout
@@ -49,6 +51,7 @@ export function paginate(
 
   // charIndexMap: allChars 索引 → 展平后的页面字符索引
   const charIndexMap: number[] = new Array(characters.length).fill(-1);
+  const commentaryFlatCount: number[] = new Array(characters.length).fill(0);
   let flatIdx = 0; // 已推入页面的字符累计计数
 
   // 初始化第一页
@@ -141,23 +144,58 @@ export function paginate(
       pcnt = 0;
     }
 
-    // 处理批注数据 — 批注不占用正文位置 (pcnt 不变)，也不取代同位置的正文字符
+    // 处理批注数据 — 批注占正文网格位 (逐对推 Character, 推进 pcnt)
     const commentForIndex = commentaryData[charIndex];
     if (commentForIndex != null && commentForIndex.isCommentary && commentForIndex.char) {
-      const lastValidIdx = Math.min(pcnt, commentPositions.length - 1, textPositions.length - 1);
-      const cpos = lastValidIdx >= 0
-        ? (commentPositions[lastValidIdx] || textPositions[lastValidIdx])
-        : { x: 0, y: 0 };
-      currentPage.commentaries.push({
-        x: cpos.x,
-        y: cpos.y,
-        chars: [...commentForIndex.char],
-        fontSize: config.fonts[0]?.commentPointSize ?? 45,
-        fontFamily: config.commentFontFamily || "serif",
-        color: config.commentFontColor,
-        side: "right",
-        rowHeight: grid.rowHeight,
-      });
+      const cmChars = [...commentForIndex.char];
+      const cmFontSize = config.fonts[0]?.commentPointSize ?? 30;
+      // 先分两列：右列取前半（多一字），左列取后半
+      const half = Math.ceil(cmChars.length / 2);
+      const rightCol = cmChars.slice(0, half);
+      const leftCol = cmChars.slice(half);
+      let cmCharCount = 0;
+      // 逐行配对，每行 2 字占一个网格位，x 在列内左右分布
+      for (let row = 0; row < rightCol.length; row++) {
+        // 检查换页
+        if (pcnt >= pageCharsNum) {
+          pages.push({ ...currentPage });
+          currentPage = createNewPage(pages.length + 1, canvas);
+          pcnt = 0;
+        }
+        const posIdx = Math.min(pcnt, textPositions.length - 1);
+        const pos = posIdx >= 0 ? textPositions[posIdx] : { x: 0, y: 0 };
+        // 右列 x 大（canvas 右），左列 x 小（canvas 左），从右往左阅读
+        const rightColX = pos.x + grid.colWidth * 0.22;
+        const leftColX = pos.x - grid.colWidth * 0.22;
+
+        // 右列（先读）
+        currentPage.characters.push({
+          x: rightColX, y: pos.y, char: rightCol[row],
+          fontFamily: config.commentFontFamily || "serif",
+          fontSize: cmFontSize, scale: 1, rotation: 0,
+          color: config.commentFontColor,
+          isCommentary: true,
+        });
+        cmCharCount++;
+        flatIdx++;
+
+        // 左列（后读）
+        if (row < leftCol.length) {
+          currentPage.characters.push({
+            x: leftColX, y: pos.y, char: leftCol[row],
+            fontFamily: config.commentFontFamily || "serif",
+            fontSize: cmFontSize, scale: 1, rotation: 0,
+            color: config.commentFontColor,
+            isCommentary: true,
+          });
+          cmCharCount++;
+          flatIdx++;
+        }
+        // 标记此 allChars 位置产生了批注字符（非跳过）
+        if (row === 0) charIndexMap[charIndex] = 0;
+        pcnt++;
+      }
+      commentaryFlatCount[charIndex] = cmCharCount;
     }
 
     // 普通字符 — 无论同位置是否有批注，正文都要渲染
@@ -190,7 +228,7 @@ export function paginate(
     pages.push(currentPage);
   }
 
-  return { pages, controlMarks, charIndexMap };
+  return { pages, controlMarks, charIndexMap, commentaryFlatCount };
 }
 
 /** 网格信息 */

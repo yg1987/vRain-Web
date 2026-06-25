@@ -191,11 +191,23 @@ export function usePreview(options: UsePreviewOptions) {
         }
         skippedBefore[allChars.length] = skippedCount;
 
-        // 修正 DecorationRange 索引：allChars 空间 → Page.characters 展平空间
+        // 统计每位置之前插入的批注字符数
+        const cmBefore: number[] = new Array(allChars.length + 1).fill(0);
+        let cmCount = 0;
+        for (let i = 0; i < allChars.length; i++) {
+          cmBefore[i] = cmCount;
+          cmCount += paginated.commentaryFlatCount[i] || 0;
+        }
+        cmBefore[allChars.length] = cmCount;
+
+        // 修正 DecorationRange 索引：
+        // flat = allCharsIdx - skippedBefore + cmBefore + cmAtPos
+        // 批注字符插入到页面前增加了 flat 索引，需加回
         const correctedRanges: DecorationRange[] = [];
         for (const r of allDecorationRanges) {
-          const start = r.startCharIndex - skippedBefore[r.startCharIndex];
-          const end = r.endCharIndex - skippedBefore[r.endCharIndex];
+          const cmAtStart = paginated.commentaryFlatCount[r.startCharIndex] || 0;
+          const start = r.startCharIndex - skippedBefore[r.startCharIndex] + cmBefore[r.startCharIndex] + cmAtStart;
+          const end = r.endCharIndex - skippedBefore[r.endCharIndex] + cmBefore[r.endCharIndex];
           if (start >= 0 && end > start) {
             correctedRanges.push({ ...r, startCharIndex: start, endCharIndex: end });
           }

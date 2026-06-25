@@ -37,6 +37,14 @@ export interface DecorationRange {
   endCharIndex: number;
   strokeWidth: number;
   color: string;
+  /** 填充色 (圆角框、圆圈等支持填色) */
+  fillColor?: string;
+  // 圈注/点注/行注 — 原始配置值 (比例，需在 resolveDecorationRanges 中 × fontSize 转像素)
+  offsetX?: number;
+  offsetY?: number;
+  radius?: number;   // 圈注圆半径比例
+  size?: number;     // 顿点注大小比例
+  lineWidth?: number; // 行注线高比例
 }
 
 /** 字体放大区间 — （）包裹的字符需缩放渲染 */
@@ -140,6 +148,7 @@ export function extractDecorationRanges(
           endCharIndex: baseOffset + endCleanIdx,
           strokeWidth: config.decorativeMarks.circleFrame.borderType === 0 ? 3 : 1,
           color: config.decorativeMarks.circleFrame.borderColor,
+          fillColor: config.decorativeMarks.circleFrame.fillColor,
         });
         i = endIdx + 1;
         continue;
@@ -171,12 +180,16 @@ export function extractDecorationRanges(
         const startCleanIdx = cleanText.length;
         cleanText += text.slice(i + 1, endIdx);
         const endCleanIdx = cleanText.length;
+        const cm = config.decorativeMarks.circleNote;
         ranges.push({
           type: "circleNote",
           startCharIndex: baseOffset + startCleanIdx,
           endCharIndex: baseOffset + endCleanIdx,
-          strokeWidth: config.decorativeMarks.circleNote.width,
-          color: config.decorativeMarks.circleNote.color,
+          strokeWidth: cm.width,
+          color: cm.color,
+          offsetX: cm.offset.x,
+          offsetY: cm.offset.y,
+          radius: cm.radius,
         });
         i = endIdx + 1;
         continue;
@@ -190,12 +203,16 @@ export function extractDecorationRanges(
         const startCleanIdx = cleanText.length;
         cleanText += text.slice(i + 1, endIdx);
         const endCleanIdx = cleanText.length;
+        const pm = config.decorativeMarks.pointNote;
         ranges.push({
           type: "pointNote",
           startCharIndex: baseOffset + startCleanIdx,
           endCharIndex: baseOffset + endCleanIdx,
           strokeWidth: 1,
-          color: config.decorativeMarks.pointNote.color,
+          color: pm.color,
+          offsetX: pm.offset.x,
+          offsetY: pm.offset.y,
+          size: pm.size,
         });
         i = endIdx + 1;
         continue;
@@ -209,12 +226,16 @@ export function extractDecorationRanges(
         const startCleanIdx = cleanText.length;
         cleanText += text.slice(i + 1, endIdx);
         const endCleanIdx = cleanText.length;
+        const lm = config.decorativeMarks.lineNote;
         ranges.push({
           type: "lineNote",
           startCharIndex: baseOffset + startCleanIdx,
           endCharIndex: baseOffset + endCleanIdx,
-          strokeWidth: config.decorativeMarks.lineNote.width,
-          color: config.decorativeMarks.lineNote.color,
+          strokeWidth: lm.width,
+          color: lm.color,
+          offsetX: lm.offset.x,
+          offsetY: lm.offset.y,
+          lineWidth: 0.4, // 行注半高比例，在字高内不溢出
         });
         i = endIdx + 1;
         continue;
@@ -307,8 +328,15 @@ export function resolveDecorationRanges(
         bounds: { x1: minX, y1: minY, x2: maxX, y2: maxY },
         strokeWidth: range.strokeWidth,
         color: range.color,
+        fillColor: range.fillColor,
         charPositions: group,
         pageIndex: decorationPageIndex,
+        // 圈注/顿点注/行注 — 比例值 × fontSize → 像素值
+        noteOffsetX: range.offsetX != null ? range.offsetX * fontSize : undefined,
+        noteOffsetY: range.offsetY != null ? range.offsetY * fontSize : undefined,
+        noteRadius: range.radius != null ? range.radius * fontSize : undefined,
+        noteSize: range.size != null ? range.size * fontSize : undefined,
+        noteHeight: range.lineWidth != null ? range.lineWidth * fontSize : undefined,
       });
     }
   }

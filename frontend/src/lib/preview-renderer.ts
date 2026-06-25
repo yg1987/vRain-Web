@@ -147,19 +147,25 @@ function drawPage(ctx: CanvasRenderingContext2D, page: Page, bookConfig: BookCon
   // 版心页码
   drawPageNumber(ctx, page.pageNumber, bookConfig, page.canvas);
 
-  // 字符
+  // 装饰的填充层 — 在文字之前绘制，避免遮盖文字
+  const textFontSize = bookConfig.fonts[0]?.textPointSize ?? 60;
+  for (const dec of page.decorations) {
+    if (dec.fillColor) {
+      drawDecorationFill(ctx, dec, textFontSize);
+    }
+  }
+
+  // 字符 (含批注小字)
   for (const ch of page.characters) {
-    if (ch.isCommentary) continue;
     drawCharacter(ctx, ch);
   }
 
-  // 夹批
+  // 夹批 (保留兼容，新批注已通过 Character 流渲染)
   for (const cm of page.commentaries) {
     drawCommentary(ctx, cm);
   }
 
-  // 装饰
-  const textFontSize = bookConfig.fonts[0]?.textPointSize ?? 60;
+  // 装饰的描边层 — 在文字之后绘制
   for (const dec of page.decorations) {
     drawDecoration(ctx, dec, textFontSize);
   }
@@ -342,6 +348,43 @@ function drawCommentary(ctx: CanvasRenderingContext2D, cm: import("../types/layo
   ctx.restore();
 }
 
+/** 绘制装饰的填充层 (在文字之前绘制) */
+function drawDecorationFill(ctx: CanvasRenderingContext2D, dec: import("../types/layout").Decoration, fontSize: number) {
+  if (dec.type !== "circleFrame" && dec.type !== "rectFrame") return;
+  if (!dec.fillColor) return;
+
+  ctx.save();
+  ctx.fillStyle = dec.fillColor;
+
+  if (dec.type === "circleFrame" && dec.charPositions && dec.charPositions.length > 0) {
+    for (const cp of dec.charPositions) {
+      const r = (dec.strokeWidth || 2) * 3;
+      ctx.beginPath();
+      ctx.arc(cp.x, cp.y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (dec.type === "rectFrame") {
+    const { x1, y1, x2, y2 } = dec.bounds;
+    const radius = 8;
+    const w = x2 - x1;
+    const h = y2 - y1;
+    ctx.beginPath();
+    ctx.moveTo(x1 + radius, y1);
+    ctx.lineTo(x2 - radius, y1);
+    ctx.arcTo(x2, y1, x2, y1 + radius, radius);
+    ctx.lineTo(x2, y2 - radius);
+    ctx.arcTo(x2, y2, x2 - radius, y2, radius);
+    ctx.lineTo(x1 + radius, y2);
+    ctx.arcTo(x1, y2, x1, y2 - radius, radius);
+    ctx.lineTo(x1, y1 + radius);
+    ctx.arcTo(x1, y1, x1 + radius, y1, radius);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 /** 绘制装饰标记 */
 function drawDecoration(ctx: CanvasRenderingContext2D, dec: import("../types/layout").Decoration, fontSize: number) {
   ctx.save();
@@ -365,49 +408,56 @@ function drawDecoration(ctx: CanvasRenderingContext2D, dec: import("../types/lay
       }
       break;
     case "circleNote":
-      // 圈注 — 逐字绘制小圆
+      // 圈注 — 位置=字符中心 + 配置偏移 (offset 比例 × fontSize)
       if (dec.charPositions && dec.charPositions.length > 0) {
-        const r = dec.strokeWidth * 2;
+        const ox = dec.noteOffsetX ?? fontSize * 0.45;
+        const oy = dec.noteOffsetY ?? 0;
+        const r = dec.noteRadius ?? dec.strokeWidth * 2;
         for (const cp of dec.charPositions) {
           ctx.beginPath();
-          ctx.arc(cp.x, cp.y, r, 0, Math.PI * 2);
+          ctx.arc(cp.x + ox, cp.y + oy, r, 0, Math.PI * 2);
           ctx.stroke();
         }
       } else {
         ctx.beginPath();
-        ctx.arc(x1, y1, dec.strokeWidth * 2, 0, Math.PI * 2);
+        ctx.arc(x1, y1, dec.noteRadius ?? dec.strokeWidth * 2, 0, Math.PI * 2);
         ctx.stroke();
       }
       break;
     case "lineNote":
-      // 行注 — 逐字绘制竖线
+      // 行注 — 从首字上方到末字下方画一条连续竖线
       if (dec.charPositions && dec.charPositions.length > 0) {
-        for (const cp of dec.charPositions) {
-          const halfH = (dec.strokeWidth || 2) * 6;
-          ctx.beginPath();
-          ctx.moveTo(cp.x, cp.y - halfH);
-          ctx.lineTo(cp.x, cp.y + halfH);
-          ctx.stroke();
-        }
+        const lox = dec.noteOffsetX ?? fontSize * 0.5;
+        const loy = dec.noteOffsetY ?? 0;
+        const ext = fontSize * 0.45; // 首末各延伸半字高
+        const first = dec.charPositions[0];
+        const last = dec.charPositions[dec.charPositions.length - 1];
+        ctx.beginPath();
+        ctx.moveTo(first.x + lox, first.y - ext + loy);
+        ctx.lineTo(last.x + lox, last.y + ext + loy);
+        ctx.stroke();
       } else {
         ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
+        ctx.moveTo(x1 + (dec.noteOffsetX ?? 0), y1 + (dec.noteOffsetY ?? 0));
+        ctx.lineTo(x2 + (dec.noteOffsetX ?? 0), y2 + (dec.noteOffsetY ?? 0));
         ctx.stroke();
       }
       break;
     case "pointNote":
-      // 顿点注 (、) — 逐字绘制
+      // 顿点注 (、) — 位置=字符中心 + 配置偏移 (offset 比例 × fontSize)
       ctx.fillStyle = dec.color || "black";
-      ctx.font = `${dec.strokeWidth * 4}px serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
+      const pSize = dec.noteSize ?? dec.strokeWidth * 4;
+      const pox = dec.noteOffsetX ?? fontSize * 0.55;
+      const poy = dec.noteOffsetY ?? 0;
+      ctx.font = `${pSize}px serif`;
       if (dec.charPositions && dec.charPositions.length > 0) {
         for (const cp of dec.charPositions) {
-          ctx.fillText("、", cp.x, cp.y);
+          ctx.fillText("、", cp.x + pox, cp.y + poy);
         }
       } else {
-        ctx.fillText("、", x1, y1);
+        ctx.fillText("、", x1 + pox, y1 + poy);
       }
       break;
     case "rectFrame":
@@ -431,7 +481,7 @@ function drawDecoration(ctx: CanvasRenderingContext2D, dec: import("../types/lay
       }
       break;
     case "circleFrame":
-      // 圆圈 — 逐字绘制
+      // 圆圈 — 逐字描边 (填充已在上层绘制)
       if (dec.charPositions && dec.charPositions.length > 0) {
         for (const cp of dec.charPositions) {
           const r = (dec.strokeWidth || 2) * 3;
