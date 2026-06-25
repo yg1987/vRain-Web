@@ -65,6 +65,36 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
     saveAll();
   }, [saveAll]);
 
+  // 插入标记 — 有选中时包裹，无选中时插入标记对或单字符
+  const insertMark = useCallback((before: string, after: string | null) => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const selected = ta.value.slice(start, end);
+    let newText: string;
+    let cursor: number;
+
+    if (after !== null) {
+      if (selected.length > 0) {
+        newText = ta.value.slice(0, start) + before + selected + after + ta.value.slice(end);
+        cursor = start + before.length + selected.length + after.length;
+      } else {
+        newText = ta.value.slice(0, start) + before + after + ta.value.slice(end);
+        cursor = start + before.length;
+      }
+    } else {
+      newText = ta.value.slice(0, start) + before + ta.value.slice(end);
+      cursor = start + before.length;
+    }
+
+    setLocalContent(newText);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(cursor, cursor);
+    });
+  }, []);
+
   // 新增章节
   const handleAddChapter = useCallback(() => {
     saveAll();
@@ -96,7 +126,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
     <div className="flex h-full gap-4">
       {/* 左侧文件列表 */}
       <div className="w-48 shrink-0 space-y-1">
-        <h3 className="mb-2 text-sm font-semibold text-ink/90">📄 文本文件</h3>
+        <h3 className="mb-2 text-sm font-semibold text-ink">📄 文本文件</h3>
 
         {/* 序 */}
         <button
@@ -104,7 +134,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
           className={`w-full rounded px-3 py-1.5 text-left text-xs transition-colors ${
             activeIdx === PREFACE_IDX
               ? "bg-vermilion/10 font-semibold text-vermilion"
-              : "text-ink/85 hover:bg-ink/[0.04]"
+              : "text-ink hover:bg-ink/[0.04]"
           }`}
         >
           <span className="mr-1">★</span>
@@ -117,7 +147,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
           className={`w-full rounded px-3 py-1.5 text-left text-xs transition-colors ${
             activeIdx === APPENDIX_IDX
               ? "bg-vermilion/10 font-semibold text-vermilion"
-              : "text-ink/85 hover:bg-ink/[0.04]"
+              : "text-ink hover:bg-ink/[0.04]"
           }`}
         >
           <span className="mr-1">★</span>
@@ -137,7 +167,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
               className={`group w-full rounded px-3 py-1.5 text-left text-xs transition-colors ${
                 activeIdx === idx
                   ? "bg-vermilion/10 font-semibold text-vermilion"
-                  : "text-ink/85 hover:bg-ink/[0.04]"
+                  : "text-ink hover:bg-ink/[0.04]"
               }`}
             >
               <span className="mr-1 font-mono text-[10px] opacity-50">
@@ -152,14 +182,14 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
         <div className="flex gap-1 pt-2">
           <button
             onClick={handleAddChapter}
-            className="flex-1 rounded border border-dashed border-ink/20 px-2 py-1 text-xs text-ink/65 transition-colors hover:border-green-400 hover:text-green-700"
+            className="flex-1 rounded border border-dashed border-ink/20 px-2 py-1 text-xs text-ink/80 transition-colors hover:border-green-400 hover:text-green-700"
           >
             ＋ 新增章节
           </button>
           {chapterCount > 1 && isChapter && (
             <button
               onClick={handleDeleteChapter}
-              className="rounded border border-dashed border-ink/20 px-2 py-1 text-xs text-ink/65 transition-colors hover:border-red-400 hover:text-red-600"
+              className="rounded border border-dashed border-ink/20 px-2 py-1 text-xs text-ink/80 transition-colors hover:border-red-400 hover:text-red-600"
               title="删除当前章节"
             >
               ✕
@@ -167,7 +197,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
           )}
         </div>
 
-        <p className="mt-2 text-[10px] text-ink/55">
+        <p className="mt-2 text-[10px] text-ink/70">
           共 {chapterCount} 章 · 序和附录为空则不导出
         </p>
       </div>
@@ -176,7 +206,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
       <div className="flex flex-1 flex-col">
         {/* 顶栏：文件标识 + 保存按钮 */}
         <div className="mb-2 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs text-ink/65">
+          <div className="flex items-center gap-2 text-xs text-ink/80">
             {activeIdx === PREFACE_IDX && <span>★ 序</span>}
             {activeIdx === APPENDIX_IDX && <span>★ 附录</span>}
             {isChapter && (
@@ -190,7 +220,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
             className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
               isDirty
                 ? "bg-vermilion text-white hover:bg-vermilion/90"
-                : "border border-ink/15 text-ink/55"
+                : "border border-ink/15 text-ink/70"
             }`}
           >
             💾 保存
@@ -199,7 +229,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
 
         {/* 章节标题输入 */}
         <div className="mb-2 flex items-center gap-2">
-          <label className="text-xs text-ink/75 whitespace-nowrap">
+          <label className="text-xs text-ink whitespace-nowrap">
             标题:
           </label>
           <input
@@ -217,6 +247,28 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
           />
         </div>
 
+        {/* 标记工具栏 */}
+        <div className="mb-2 space-y-1">
+          <div className="text-[10px] text-ink/60">标记工具 · 选中文字后点击包裹，或直接点击插入</div>
+          <div className="flex flex-wrap gap-1">
+            <ToolBtn label="【夹批】" title="双列小字注释" onClick={() => insertMark("【", "】")} />
+            <ToolBtn label="《书名》" title="右侧波浪线装饰" onClick={() => insertMark("《", "》")} />
+            <ToolBtn label="〔框〕" title="圆角矩形包围" onClick={() => insertMark("〔", "〕")} />
+            <ToolBtn label="〈圈〉" title="圆形包围" onClick={() => insertMark("〈", "〉")} />
+            <ToolBtn label="（大）" title="字体放大" onClick={() => insertMark("（", "）")} />
+            <ToolBtn label="｛注｝" title="右侧小圆圈注" onClick={() => insertMark("｛", "｝")} />
+            <ToolBtn label="＜点＞" title="右侧顿号点注" onClick={() => insertMark("＜", "＞")} />
+            <ToolBtn label="［行］" title="右侧竖线行注" onClick={() => insertMark("［", "］")} />
+            <span className="mx-1 border-l border-ink/15" />
+            <ToolBtn label="% 换页" title="从此处另起一页" onClick={() => insertMark("%", null)} />
+            <ToolBtn label="$ 半页" title="跳到下半页继续" onClick={() => insertMark("$", null)} />
+            <ToolBtn label="& 末列" title="跳到当页最后一列" onClick={() => insertMark("&", null)} />
+            <ToolBtn label="@ 空格" title="插入一个空格位" onClick={() => insertMark("@", null)} />
+            <ToolBtn label="T 缩进" title="段落首行缩进一字" onClick={() => insertMark("T", null)} />
+            <ToolBtn label="^ 多栏" title="跳到下一栏块" onClick={() => insertMark("^", null)} />
+          </div>
+        </div>
+
         <textarea
           ref={textareaRef}
           className="text-editor flex-1"
@@ -232,27 +284,22 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
           onBlur={handleBlur}
         />
 
-        {/* 标记语法提示 */}
-        <div className="mt-4 rounded border border-ink/10 bg-ink/[0.02] p-3">
-          <h4 className="mb-2 text-xs font-semibold text-ink/75">标记语法参考</h4>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs text-ink/85">
-            <div><code className="rounded bg-ink/[0.06] px-1">【】</code> 夹批注释</div>
-            <div><code className="rounded bg-ink/[0.06] px-1">《》</code> 书名号线</div>
-            <div><code className="rounded bg-ink/[0.06] px-1">{`〔〕`}</code> 圆角框</div>
-            <div><code className="rounded bg-ink/[0.06] px-1">{`〈〉`}</code> 圆圈</div>
-            <div><code className="rounded bg-ink/[0.06] px-1">{`（）`}</code> 字体放大</div>
-            <div><code className="rounded bg-ink/[0.06] px-1">{`｛｝`}</code> 圈注</div>
-            <div><code className="rounded bg-ink/[0.06] px-1">{`＜＞`}</code> 顿点注</div>
-            <div><code className="rounded bg-ink/[0.06] px-1">{`［］`}</code> 行注</div>
-            <div><code className="rounded bg-ink/[0.06] px-1">%</code> 强制换页</div>
-            <div><code className="rounded bg-ink/[0.06] px-1">$</code> 半页跳</div>
-            <div><code className="rounded bg-ink/[0.06] px-1">&amp;</code> 末列跳</div>
-            <div><code className="rounded bg-ink/[0.06] px-1">@</code> 空格</div>
-            <div><code className="rounded bg-ink/[0.06] px-1">T</code> 段落缩进</div>
-            <div><code className="rounded bg-ink/[0.06] px-1">^</code> 多栏跳</div>
-          </div>
-        </div>
+        <p className="mt-2 text-[11px] text-ink/60">标记符号 详细说明请查看配置页</p>
       </div>
     </div>
+  );
+}
+
+/** 标记工具栏按钮 */
+function ToolBtn({ label, title, onClick }: { label: string; title: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className="rounded border border-ink/20 bg-ink/[0.03] px-1.5 py-0.5 text-[11px] font-medium text-ink shadow-sm transition-all hover:border-vermilion/40 hover:bg-vermilion/10 hover:text-vermilion hover:shadow active:scale-95"
+    >
+      {label}
+    </button>
   );
 }

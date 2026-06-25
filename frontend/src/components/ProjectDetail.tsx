@@ -299,6 +299,80 @@ export default function ProjectDetail() {
                 onFontUploaded={onFontUploaded}
                 onFontAdd={onFontAdd}
               />
+
+              {/* 标记说明表格 */}
+              <div className="rounded border border-ink/10 bg-white/40">
+                <div className="border-b border-ink/10 px-4 py-2 text-sm font-medium text-ink">📐 标记符号说明</div>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-ink/10 bg-ink/[0.02] text-left text-ink/80">
+                      <th className="px-4 py-2 font-medium">对应符号</th>
+                      <th className="px-4 py-2 font-medium">传统术语</th>
+                      <th className="px-4 py-2 font-medium">传统做法</th>
+                      <th className="px-4 py-2 font-medium">视觉效果</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-ink/75">
+                    <tr className="border-t border-ink/5">
+                      <td className="px-4 py-2 font-mono font-medium">【】</td>
+                      <td className="px-4 py-2">双行夹注</td>
+                      <td className="px-4 py-2">正文间插双行小字注释</td>
+                      <td className="px-4 py-2">正文右侧双列小字</td>
+                    </tr>
+                    <tr className="border-t border-ink/5">
+                      <td className="px-4 py-2 font-mono font-medium">《》</td>
+                      <td className="px-4 py-2">书名号</td>
+                      <td className="px-4 py-2">书名旁画波浪线</td>
+                      <td className="px-4 py-2">文字右侧竖波浪线</td>
+                    </tr>
+                    <tr className="border-t border-ink/5">
+                      <td className="px-4 py-2 font-mono font-medium">{`〔〕`}</td>
+                      <td className="px-4 py-2">墨框 / 围框</td>
+                      <td className="px-4 py-2">文字周围画方框</td>
+                      <td className="px-4 py-2">圆角包围框</td>
+                    </tr>
+                    <tr className="border-t border-ink/5">
+                      <td className="px-4 py-2 font-mono font-medium">{`〈〉`}</td>
+                      <td className="px-4 py-2">句读圆圈</td>
+                      <td className="px-4 py-2">字旁画小圆圈</td>
+                      <td className="px-4 py-2">逐字画圈</td>
+                    </tr>
+                    <tr className="border-t border-ink/5">
+                      <td className="px-4 py-2 font-mono font-medium">{`（）`}</td>
+                      <td className="px-4 py-2">大字醒目</td>
+                      <td className="px-4 py-2">重点字词放大显示</td>
+                      <td className="px-4 py-2">字符放大</td>
+                    </tr>
+                    <tr className="border-t border-ink/5">
+                      <td className="px-4 py-2 font-mono font-medium">{`｛｝`}</td>
+                      <td className="px-4 py-2">圈点批注</td>
+                      <td className="px-4 py-2">字右侧画小圈表重要</td>
+                      <td className="px-4 py-2">逐字画小圈</td>
+                    </tr>
+                    <tr className="border-t border-ink/5">
+                      <td className="px-4 py-2 font-mono font-medium">{`＜＞`}</td>
+                      <td className="px-4 py-2">句读顿点</td>
+                      <td className="px-4 py-2">字旁画顿点</td>
+                      <td className="px-4 py-2">逐字画顿点</td>
+                    </tr>
+                    <tr className="border-t border-ink/5">
+                      <td className="px-4 py-2 font-mono font-medium">{`［］`}</td>
+                      <td className="px-4 py-2">行间竖线</td>
+                      <td className="px-4 py-2">字右侧画竖线表注解</td>
+                      <td className="px-4 py-2">逐字画竖线</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div className="border-t border-ink/10 px-4 py-2 text-sm text-ink/65">
+                  <span className="font-medium">排版控制：</span>
+                  <code className="mx-1 rounded bg-ink/[0.04] px-1">%</code>换页
+                  <code className="mx-1 rounded bg-ink/[0.04] px-1">$</code>半页跳
+                  <code className="mx-1 rounded bg-ink/[0.04] px-1">&amp;</code>末列跳
+                  <code className="mx-1 rounded bg-ink/[0.04] px-1">@</code>空格
+                  <code className="mx-1 rounded bg-ink/[0.04] px-1">T</code>段落缩进
+                  <code className="mx-1 rounded bg-ink/[0.04] px-1">^</code>多栏跳
+                </div>
+              </div>
             </div>
           )}
 

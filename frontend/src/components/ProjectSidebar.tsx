@@ -4,6 +4,7 @@
  */
 import { useNavigate } from "react-router-dom";
 import type { FontEntry } from "../types/layout";
+import { getCanvasPresetLabel } from "../lib/canvas-presets";
 
 interface ProjectSidebarProps {
   projectName?: string;
@@ -41,7 +42,7 @@ export default function ProjectSidebar({
       <div className="mb-4 rounded-lg border border-ink/10 bg-white/40 p-3 space-y-2">
         {/* 书名 + 作者 */}
         <div>
-          <div className="text-sm font-semibold text-ink">{projectName}</div>
+          <div className="text-sm font-semibold text-ink">书名：{projectName}</div>
           {author && (
             <div className="mt-0.5 text-xs text-ink/65">作者: {author}</div>
           )}
@@ -51,7 +52,7 @@ export default function ProjectSidebar({
 
         {/* 基本设置 */}
         <div className="space-y-1 text-xs text-ink/75">
-          <div>画布: {canvasId || "未设置"}</div>
+          <div>画布: {canvasId ? getCanvasPresetLabel(canvasId) : "未设置"}</div>
           <div>每列字数: {rowNum || "-"}</div>
           <div>文本文件: {textFileCount > 0 ? textFileCount : "未设置"}</div>
         </div>
@@ -69,7 +70,6 @@ export default function ProjectSidebar({
                     {i + 1}
                   </span>
                   <span className="truncate">{font.name || font.filename}</span>
-                  <span className="shrink-0 text-ink/55">· {font.textPointSize}pt</span>
                 </div>
               ))}
             </div>

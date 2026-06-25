@@ -4,7 +4,7 @@
  */
 import { useState, useCallback, useEffect } from "react";
 import type { BookConfig, CanvasConfig } from "../types/layout";
-import { getCanvasPreset, getCanvasPresetLabel, getCanvasPresetIds, isKnownPreset } from "../lib/canvas-presets";
+import { getCanvasPreset, getCanvasPresetLabel, getCanvasPresetIds } from "../lib/canvas-presets";
 
 interface Props {
   bookConfig: BookConfig;
@@ -73,11 +73,9 @@ export default function ConfigEditor({ bookConfig, canvasConfig, onChange }: Pro
           <label className="config-group-label">画布预设</label>
           <select
             className="config-select"
-            value={isKnownPreset(book.canvasId) ? book.canvasId : "_custom"}
+            value={book.canvasId}
             onChange={(e) => {
-              const id = e.target.value;
-              if (id === "_custom") return;
-              const preset = getCanvasPreset(id);
+              const preset = getCanvasPreset(e.target.value);
               if (preset) {
                 // 一次 onChange 同时更新 book 和 canvas
                 const newBook = { ...book, canvasId: id };
@@ -90,9 +88,6 @@ export default function ConfigEditor({ bookConfig, canvasConfig, onChange }: Pro
             {getCanvasPresetIds().map((id) => (
               <option key={id} value={id}>{getCanvasPresetLabel(id)}</option>
             ))}
-            <option value="_custom" disabled={isKnownPreset(book.canvasId)}>
-              ── 自定义 ──
-            </option>
           </select>
           <p className="mt-1 text-[10px] text-ink/65">
             选择预设将自动替换右边画布参数

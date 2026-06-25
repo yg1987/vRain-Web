@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type ProjectData } from "../lib/api";
 import { DEFAULT_BOOK_CONFIG, DEFAULT_CANVAS_CONFIG, DEFAULT_TEXT_LINES } from "../hooks/useProjectStore";
+import { getCanvasPresetLabel } from "../lib/canvas-presets";
 
 export default function ProjectList() {
   const navigate = useNavigate();
@@ -155,7 +156,7 @@ export default function ProjectList() {
               <div className="mt-3 flex items-center gap-3 text-xs text-ink/65">
                 <span>{project.bookConfig.rowNum} 字/列</span>
                 <span>{project.textLines.length} 文件</span>
-                <span>{project.bookConfig.canvasId}</span>
+                <span>{getCanvasPresetLabel(project.bookConfig.canvasId)}</span>
               </div>
               <p className="mt-1 text-[10px] text-ink/55">
                 {new Date(project.updatedAt).toLocaleString("zh-CN")}
