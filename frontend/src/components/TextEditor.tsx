@@ -7,6 +7,7 @@
  *   [2+] 01.txt ~   → 各章节
  */
 import { useState, useCallback, useEffect, useRef } from "react";
+import { num2zh } from "../lib/num2zh";
 
 interface TextEditorProps {
   textLines: string[][];
@@ -23,56 +24,59 @@ const CHAPTER_START_IDX = 2;
 export default function TextEditor({ textLines, setTextLines, chapterTitles, setChapterTitles }: TextEditorProps) {
   const [activeIdx, setActiveIdx] = useState(PREFACE_IDX);
   const [localContent, setLocalContent] = useState("");
+  const [localTitle, setLocalTitle] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // 同步当前文件的本地内容
+  // 同步当前文件的本地内容和标题
   useEffect(() => {
     const currentLines = textLines[activeIdx] || [];
     setLocalContent(currentLines.join("\n"));
-  }, [activeIdx, textLines]);
+    setLocalTitle(chapterTitles[activeIdx] || "");
+  }, [activeIdx, textLines, chapterTitles]);
 
-  // 当前章节标题
-  const currentTitle = chapterTitles[activeIdx] || "";
+  // 内容是否已修改
+  const isDirty = localContent !== (textLines[activeIdx]?.join("\n") || "")
+    || localTitle !== (chapterTitles[activeIdx] || "");
 
-  // 保存当前文件内容
-  const saveCurrentFile = useCallback(() => {
+  // 保存内容和标题
+  const saveAll = useCallback(() => {
+    // 保存内容
     const lines = localContent.split("\n");
     const newLines = [...textLines];
     newLines[activeIdx] = lines;
     setTextLines(newLines);
-  }, [activeIdx, localContent, textLines, setTextLines]);
-
-  // 保存章节标题
-  const saveChapterTitle = useCallback(
-    (title: string) => {
-      const newTitles = [...chapterTitles];
-      newTitles[activeIdx] = title;
-      setChapterTitles(newTitles);
-    },
-    [activeIdx, chapterTitles, setChapterTitles],
-  );
+    // 保存标题
+    const newTitles = [...chapterTitles];
+    newTitles[activeIdx] = localTitle;
+    setChapterTitles(newTitles);
+  }, [activeIdx, localContent, localTitle, textLines, chapterTitles, setTextLines, setChapterTitles]);
 
   // 切换文件前保存
   const handleSelect = useCallback(
     (idx: number) => {
-      saveCurrentFile();
+      saveAll();
       setActiveIdx(idx);
     },
-    [saveCurrentFile],
+    [saveAll],
   );
 
   // 失焦自动保存
   const handleBlur = useCallback(() => {
-    saveCurrentFile();
-  }, [saveCurrentFile]);
+    saveAll();
+  }, [saveAll]);
 
   // 新增章节
   const handleAddChapter = useCallback(() => {
-    saveCurrentFile();
+    saveAll();
     const newLines = [...textLines, []];
     setTextLines(newLines);
+    // 同时添加默认章节标题
+    const newNum = newLines.length - CHAPTER_START_IDX;
+    const newTitles = [...chapterTitles];
+    newTitles[newLines.length - 1] = `第${num2zh(newNum)}章`;
+    setChapterTitles(newTitles);
     setActiveIdx(newLines.length - 1);
-  }, [saveCurrentFile, textLines, setTextLines]);
+  }, [saveAll, textLines, setTextLines, chapterTitles, setChapterTitles]);
 
   // 删除章节
   const handleDeleteChapter = useCallback(() => {
@@ -87,8 +91,6 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
   const isChapter = activeIdx >= CHAPTER_START_IDX;
   const chapterCount = Math.max(0, textLines.length - CHAPTER_START_IDX);
   const chapterNum = isChapter ? activeIdx - CHAPTER_START_IDX + 1 : 0;
-  const hasPreface = (textLines[PREFACE_IDX]?.length ?? 0) > 0;
-  const hasAppendix = (textLines[APPENDIX_IDX]?.length ?? 0) > 0;
 
   return (
     <div className="flex h-full gap-4">
@@ -106,7 +108,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
           }`}
         >
           <span className="mr-1">★</span>
-          {hasPreface ? "序" : "序（空）"}
+          序
         </button>
 
         {/* 附录 */}
@@ -119,7 +121,7 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
           }`}
         >
           <span className="mr-1">★</span>
-          {hasAppendix ? "附录" : "附录（空）"}
+          附录
         </button>
 
         <div className="border-t border-ink/10 my-2" />
@@ -172,15 +174,27 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
 
       {/* 右侧编辑区 */}
       <div className="flex flex-1 flex-col">
-        {/* 当前文件标识 */}
-        <div className="mb-2 flex items-center gap-2 text-xs text-ink/65">
-          {activeIdx === PREFACE_IDX && <span>★ 序（{hasPreface ? "有内容" : "空"}）</span>}
-          {activeIdx === APPENDIX_IDX && <span>★ 附录（{hasAppendix ? "有内容" : "空"}）</span>}
-          {isChapter && (
-            <span>
-              {String(chapterNum).padStart(2, "0")}.txt · 第 {chapterNum} 章 · 共 {currentContent.split("\n").length} 行
-            </span>
-          )}
+        {/* 顶栏：文件标识 + 保存按钮 */}
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs text-ink/65">
+            {activeIdx === PREFACE_IDX && <span>★ 序</span>}
+            {activeIdx === APPENDIX_IDX && <span>★ 附录</span>}
+            {isChapter && (
+              <span>
+                {String(chapterNum).padStart(2, "0")}.txt · 第 {chapterNum} 章 · 共 {currentContent.split("\n").length} 行
+              </span>
+            )}
+          </div>
+          <button
+            onClick={saveAll}
+            className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
+              isDirty
+                ? "bg-vermilion text-white hover:bg-vermilion/90"
+                : "border border-ink/15 text-ink/55"
+            }`}
+          >
+            💾 保存
+          </button>
         </div>
 
         {/* 章节标题输入 */}
@@ -198,8 +212,8 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
                 ? "如：附录"
                 : "如：第一回 贾宝玉梦游太虚境"
             }
-            value={currentTitle}
-            onChange={(e) => saveChapterTitle(e.target.value)}
+            value={localTitle}
+            onChange={(e) => setLocalTitle(e.target.value)}
           />
         </div>
 

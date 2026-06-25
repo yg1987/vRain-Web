@@ -23,7 +23,7 @@ import PdfExportPanel from "./PdfExportPanel";
 import FontSelector from "./FontSelector";
 import { usePreview } from "../hooks/usePreview";
 import { api } from "../lib/api";
-import { DEFAULT_BOOK_CONFIG, DEFAULT_CANVAS_CONFIG, DEFAULT_TEXT_LINES } from "../hooks/useProjectStore";
+import { DEFAULT_BOOK_CONFIG, DEFAULT_CANVAS_CONFIG, DEFAULT_TEXT_LINES, DEFAULT_CHAPTER_TITLES } from "../hooks/useProjectStore";
 
 import type { BookConfig, CanvasConfig, FontEntry } from "../types/layout";
 
@@ -33,9 +33,10 @@ export default function ProjectDetail() {
   const [bookConfig, setBookConfig] = useState<BookConfig>(DEFAULT_BOOK_CONFIG);
   const [canvasConfig, setCanvasConfig] = useState<CanvasConfig>(DEFAULT_CANVAS_CONFIG);
   const [textLines, setTextLines] = useState<string[][]>(DEFAULT_TEXT_LINES.map((arr) => [...arr]));
-  const [chapterTitles, setChapterTitles] = useState<string[]>(["序", "附录", "第一回"]);
+  const [chapterTitles, setChapterTitles] = useState<string[]>([...DEFAULT_CHAPTER_TITLES]);
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<"" | "saving" | "saved" | "error">("");
+  const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
 
   const loadedRef = useRef(false);
   const saveStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -54,7 +55,7 @@ export default function ProjectDetail() {
         setBookConfig(bConfig);
         setCanvasConfig(project.canvasConfig);
         setTextLines(project.textLines.map((arr) => [...arr]));
-        setChapterTitles(project.chapterTitles || ["序", "附录", "第一回"]);
+        setChapterTitles(project.chapterTitles?.length ? project.chapterTitles : [...DEFAULT_CHAPTER_TITLES]);
       } catch (err) {
         console.error("加载项目失败:", err);
         // 项目不存在时使用默认值
@@ -68,26 +69,26 @@ export default function ProjectDetail() {
   }, [projectId]);
 
   // ========== 自动持久化 ==========
-  // 配置/文本变化后防抖保存到后端 SQLite，更新保存状态提示
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const triggerSave = useCallback(() => {
     if (!projectId) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     setSaveStatus("saving");
-    saveTimerRef.current = setTimeout(() => {
-      api
-        .updateProject(projectId, { bookConfig, canvasConfig, textLines, chapterTitles })
-        .then(() => {
-          setSaveStatus("saved");
-          // 2 秒后自动清除
-          if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
-          saveStatusTimerRef.current = setTimeout(() => setSaveStatus(""), 2000);
-        })
-        .catch((err) => {
-          console.error("保存项目失败:", err);
-          setSaveStatus("error");
-        });
-    }, 500);
+    saveTimerRef.current = setTimeout(() => doSave(), 500);
+  }, [projectId, bookConfig, canvasConfig, textLines, chapterTitles]);
+
+  const doSave = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      setSaveStatus("saving");
+      await api.updateProject(projectId, { bookConfig, canvasConfig, textLines, chapterTitles });
+      setSaveStatus("saved");
+      if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
+      saveStatusTimerRef.current = setTimeout(() => setSaveStatus(""), 2000);
+    } catch (err) {
+      console.error("保存项目失败:", err);
+      setSaveStatus("error");
+    }
   }, [projectId, bookConfig, canvasConfig, textLines, chapterTitles]);
 
   useEffect(() => {
@@ -129,6 +130,7 @@ export default function ProjectDetail() {
     canvasConfig,
     textLines,
     chapterTitles,
+    refreshKey: previewRefreshKey,
   });
 
   // ========== 配置变更回调 ==========
@@ -263,6 +265,15 @@ export default function ProjectDetail() {
           {/* ========== 配置 ========== */}
           {activeTab === "config" && (
             <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-ink/90">📖 书籍 & 画布配置</h3>
+                <button
+                  onClick={doSave}
+                  className="rounded bg-vermilion px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-vermilion/90"
+                >
+                  💾 保存配置
+                </button>
+              </div>
               <ConfigEditor
                 bookConfig={bookConfig}
                 canvasConfig={canvasConfig}
@@ -303,7 +314,17 @@ export default function ProjectDetail() {
 
           {/* ========== 预览 ========== */}
           {activeTab === "preview" && (
-            <PreviewViewport
+            <div className="space-y-0">
+              <div className="flex items-center justify-end">
+                <button
+                  onClick={() => setPreviewRefreshKey((k) => k + 1)}
+                  disabled={preview.state.isProcessing}
+                  className="rounded border border-ink/15 bg-white/60 px-3 py-1 text-xs text-ink/75 transition-colors hover:bg-vermilion/10 hover:text-vermilion disabled:opacity-50"
+                >
+                  {preview.state.isProcessing ? "⏳ 刷新中..." : "🔄 刷新预览"}
+                </button>
+              </div>
+              <PreviewViewport
               pages={preview.state.pages}
               bookConfig={bookConfig}
               canvasConfig={canvasConfig}
@@ -314,6 +335,7 @@ export default function ProjectDetail() {
               onZoomChange={onZoomChange}
               onToggleCover={onToggleCover}
             />
+            </div>
           )}
 
           {/* ========== 导出 ========== */}

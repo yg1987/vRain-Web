@@ -63,16 +63,18 @@ export async function registerProjectRoutes(app: FastifyInstance) {
   // ==========================================================================
   app.put("/api/projects/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
-    const { book_config, canvas_config, text_files } = request.body as {
+    const { book_config, canvas_config, text_files, chapter_titles } = request.body as {
       book_config?: Record<string, unknown>;
       canvas_config?: Record<string, unknown>;
       text_files?: string[][];
+      chapter_titles?: string[];
     };
 
     const updated = updateProject(id, {
       bookConfig: book_config,
       canvasConfig: canvas_config,
       textLines: text_files,
+      chapterTitles: chapter_titles,
     });
 
     if (!updated) {

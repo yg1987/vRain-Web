@@ -87,7 +87,7 @@ export default function PunctuationPanel({ bookConfig, onChange }: Props) {
         {bookConfig.noPunctuationMode && (
           <div className="mt-2">
             <input className="config-input font-mono text-xs"
-              placeholder="要删除的标点字符"
+              placeholder="例: ，|。|；|：（管道分隔要删除的标点）"
               value={bookConfig.noPositionPunctuation}
               onChange={(e) => update({ noPositionPunctuation: e.target.value })} />
           </div>
@@ -108,7 +108,7 @@ export default function PunctuationPanel({ bookConfig, onChange }: Props) {
         {bookConfig.onlyPeriodMode && (
           <div className="mt-2">
             <input className="config-input font-mono text-xs"
-              placeholder="要转为句号的标点"
+              placeholder="例: ，|。|；|：（管道分隔要转为句号的标点）"
               value={bookConfig.noPositionPunctuation}
               onChange={(e) => update({ noPositionPunctuation: e.target.value })} />
           </div>
@@ -123,7 +123,9 @@ export default function PunctuationPanel({ bookConfig, onChange }: Props) {
       {/* 不占位标点 */}
       <div className="config-group">
         <label className="config-group-label">不占位标点 (text_comma_nop)</label>
-        <input className="config-input font-mono text-xs" value={bookConfig.noPositionPunctuation}
+        <input className="config-input font-mono text-xs"
+          placeholder="例: ·|～|…|—"
+          value={bookConfig.noPositionPunctuation}
           onChange={(e) => update({ noPositionPunctuation: e.target.value })} />
         <div className="mt-1 grid grid-cols-3 gap-2">
           <MiniInput label="缩放" value={bookConfig.noPositionPunctuationSize} step={0.05}
@@ -138,7 +140,9 @@ export default function PunctuationPanel({ bookConfig, onChange }: Props) {
       {/* 旋转标点 */}
       <div className="config-group">
         <label className="config-group-label">旋转标点 (text_comma_90)</label>
-        <input className="config-input font-mono text-xs" value={bookConfig.rotatedPunctuation}
+        <input className="config-input font-mono text-xs"
+          placeholder="例: 「|」|『|』"
+          value={bookConfig.rotatedPunctuation}
           onChange={(e) => update({ rotatedPunctuation: e.target.value })} />
         <div className="mt-1 grid grid-cols-3 gap-2">
           <MiniInput label="缩放" value={bookConfig.rotatedPunctuationSize} step={0.05}
@@ -157,13 +161,17 @@ export default function PunctuationPanel({ bookConfig, onChange }: Props) {
 
       <div className="config-group">
         <label className="config-group-label">不占位标点 (comment_comma_nop)</label>
-        <input className="config-input font-mono text-xs" value={bookConfig.commentNoPositionPunctuation}
+        <input className="config-input font-mono text-xs"
+          placeholder="例: ·|～"
+          value={bookConfig.commentNoPositionPunctuation}
           onChange={(e) => update({ commentNoPositionPunctuation: e.target.value })} />
       </div>
 
       <div className="config-group">
         <label className="config-group-label">旋转标点 (comment_comma_90)</label>
-        <input className="config-input font-mono text-xs" value={bookConfig.commentRotatedPunctuation}
+        <input className="config-input font-mono text-xs"
+          placeholder="例: 「|」"
+          value={bookConfig.commentRotatedPunctuation}
           onChange={(e) => update({ commentRotatedPunctuation: e.target.value })} />
       </div>
     </div>

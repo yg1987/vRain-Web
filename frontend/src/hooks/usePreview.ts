@@ -13,6 +13,7 @@ import { paginate } from "../lib/pagination-controller";
 import { preprocessLine, parseTextFile } from "../lib/text-parser";
 import { renderPages } from "../lib/preview-renderer";
 import { extractDecorationRanges, resolveDecorationRanges, assignDecorationsToPages } from "../lib/markup-parser";
+import { num2zh } from "../lib/num2zh";
 import type { DecorationRange, TextZoomRange } from "../lib/markup-parser";
 
 export interface PreviewState {
@@ -29,12 +30,14 @@ export interface PreviewState {
 export interface UsePreviewOptions {
   bookConfig: BookConfig;
   canvasConfig: CanvasConfig;
-  textLines: string[][];  // 每个文本文件的行数组
-  chapterTitles: string[]; // 每个文件的章节标题
+  textLines: string[][];
+  chapterTitles: string[];
+  /** 外部刷新触发 — 变化时强制重建预览 */
+  refreshKey?: number;
 }
 
 export function usePreview(options: UsePreviewOptions) {
-  const { bookConfig, canvasConfig, textLines, chapterTitles } = options;
+  const { bookConfig, canvasConfig, textLines, chapterTitles, refreshKey } = options;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -86,7 +89,9 @@ export function usePreview(options: UsePreviewOptions) {
 
         // 收集标题 — 使用用户设置的章节标题 + 后缀
         const chapterTitle = chapterTitles[fi] || "";
-        const postfix = bookConfig.titlePostfix.replace("X", String(fi + 1));
+        // fallback: 章节缺标题时用"第N章"，序/附录用"序"/"附录"
+        const chapterNum = fi >= 2 ? fi - 1 : fi + 1;
+        const postfix = fi >= 2 ? `第${num2zh(chapterNum)}章` : bookConfig.titlePostfix.replace("X", String(chapterNum));
         // 序(0) → 后缀变"序"，附录(1) → 后缀变"附"，章节(2+) → 用回目数字
         let titlePostfix = postfix;
         if (fi === 0 && chapterTitle) {
@@ -228,7 +233,7 @@ export function usePreview(options: UsePreviewOptions) {
       setState((s) => ({ ...s, error: String(err), isProcessing: false }));
       return [];
     }
-  }, [bookConfig, canvasConfig, textLines, chapterTitles]);
+  }, [bookConfig, canvasConfig, textLines, chapterTitles, refreshKey]);
 
   // 渲染到 Canvas (带防抖)
   const renderToCanvas = useCallback(
@@ -274,11 +279,12 @@ export function usePreview(options: UsePreviewOptions) {
     });
   }, [state.totalPages]);
 
-  // 配置变更 → 重建 IR → 渲染
+  // 配置/文本变更 → 重建 IR
   useEffect(() => {
     let cancelled = false;
 
     const run = async () => {
+      setState((s) => ({ ...s, isProcessing: true }));
       const pages = await buildPages();
       if (cancelled) return;
 
@@ -289,10 +295,6 @@ export function usePreview(options: UsePreviewOptions) {
         error: null,
         isProcessing: false,
       }));
-
-      if (pages.length > 0) {
-        renderToCanvas(pages, state.showCover ? 0 : state.currentPage, state.showCover);
-      }
     };
 
     run();
@@ -300,12 +302,27 @@ export function usePreview(options: UsePreviewOptions) {
     return () => {
       cancelled = true;
     };
-  }, [buildPages, state.currentPage, state.showCover, renderToCanvas]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildPages, refreshKey]);
+
+  // 翻页/切封面 → 仅重绘 Canvas（不重建 IR）
+  useEffect(() => {
+    if (state.pages.length === 0) return;
+    renderToCanvas(state.pages, state.showCover ? 0 : state.currentPage, state.showCover);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.currentPage, state.showCover, state.pages]);
 
   // 翻页
   const goToPage = useCallback((page: number) => {
     setState((s) => ({ ...s, currentPage: Math.max(1, Math.min(page, s.totalPages)) }));
   }, []);
+
+  // 刷新时重置到第 1 页
+  useEffect(() => {
+    if (refreshKey && refreshKey > 0) {
+      setState((s) => ({ ...s, currentPage: 1, showCover: false, isProcessing: true, error: null }));
+    }
+  }, [refreshKey]);
 
   // 切换封面
   const toggleCover = useCallback(() => {

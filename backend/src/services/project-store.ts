@@ -24,6 +24,7 @@ export interface ProjectRow {
   book_config: string; // JSON
   canvas_config: string; // JSON
   text_files: string; // JSON: [{ filename, content }]
+  chapter_titles: string; // JSON: string[]
   created_at: number;
   updated_at: number;
 }
@@ -64,10 +65,15 @@ export function initDb(): void {
       book_config TEXT,
       canvas_config TEXT,
       text_files TEXT,
+      chapter_titles TEXT,
       created_at INTEGER,
       updated_at INTEGER
     )
   `);
+
+  // 兼容旧表：添加 chapter_titles 列
+  try { database.exec(`ALTER TABLE projects ADD COLUMN chapter_titles TEXT`); }
+  catch { /* 列已存在 */ }
 
   console.log("[project-store] Database initialized");
 }
@@ -108,6 +114,7 @@ export function createProject(
   defaultBookConfig: Record<string, unknown> = {},
   defaultCanvasConfig: Record<string, unknown> = {},
   defaultTextLines: string[][] = [],
+  defaultChapterTitles: string[] = [],
 ): ProjectData {
   const database = getDb();
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -119,10 +126,10 @@ export function createProject(
 
   database
     .prepare(
-      `INSERT INTO projects (id, name, book_config, canvas_config, text_files, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO projects (id, name, book_config, canvas_config, text_files, chapter_titles, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(id, name, JSON.stringify(bookConfig), JSON.stringify(canvasConfig), JSON.stringify(textFiles), now, now);
+    .run(id, name, JSON.stringify(bookConfig), JSON.stringify(canvasConfig), JSON.stringify(textFiles), JSON.stringify(defaultChapterTitles), now, now);
 
   return {
     id,
@@ -130,6 +137,7 @@ export function createProject(
     bookConfig,
     canvasConfig,
     textLines: defaultTextLines,
+    chapterTitles: defaultChapterTitles,
     createdAt: new Date(now).toISOString(),
     updatedAt: new Date(now).toISOString(),
   };
@@ -144,6 +152,7 @@ export function updateProject(
     bookConfig?: Record<string, unknown>;
     canvasConfig?: Record<string, unknown>;
     textLines?: string[][];
+    chapterTitles?: string[];
   },
 ): boolean {
   const database = getDb();
@@ -162,13 +171,16 @@ export function updateProject(
   const textFiles = data.textLines
     ? JSON.stringify(textLinesToFiles(data.textLines))
     : existing.text_files;
+  const chapterTitles = data.chapterTitles
+    ? JSON.stringify(data.chapterTitles)
+    : existing.chapter_titles;
 
   database
     .prepare(
-      `UPDATE projects SET book_config = ?, canvas_config = ?, text_files = ?, updated_at = ?
+      `UPDATE projects SET book_config = ?, canvas_config = ?, text_files = ?, chapter_titles = ?, updated_at = ?
        WHERE id = ?`,
     )
-    .run(bookConfig, canvasConfig, textFiles, Date.now(), id);
+    .run(bookConfig, canvasConfig, textFiles, chapterTitles, Date.now(), id);
 
   return true;
 }
@@ -189,6 +201,7 @@ export function deleteProject(id: string): boolean {
 function rowToData(row: ProjectRow): ProjectData {
   const textFiles = JSON.parse(row.text_files || "[]") as { filename: string; content: string }[];
   const textLines = filesToTextLines(textFiles);
+  const chapterTitles: string[] = JSON.parse(row.chapter_titles || "[]");
 
   return {
     id: row.id,
@@ -196,6 +209,7 @@ function rowToData(row: ProjectRow): ProjectData {
     bookConfig: JSON.parse(row.book_config || "{}"),
     canvasConfig: JSON.parse(row.canvas_config || "{}"),
     textLines,
+    chapterTitles,
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
   };

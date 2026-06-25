@@ -121,6 +121,7 @@ export const api = {
       book_config: data.bookConfig,
       canvas_config: data.canvasConfig,
       text_files: data.textLines,
+      chapter_titles: data.chapterTitles,
     }),
 
   /**
