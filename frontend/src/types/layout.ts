@@ -35,6 +35,10 @@ export interface Character {
   rotation: number;
   color: string;
   isCommentary: boolean;
+  /** 背景色 (批注支持) */
+  backgroundColor?: string;
+  /** 批注块 ID (同一【】的字符相同，用于背景分组) */
+  cmBlockId?: number;
 }
 
 // ========================
@@ -209,6 +213,7 @@ export interface BookConfig {
   commentNoPositionPunctuation: string;
   commentRotatedPunctuation: string;
   decorativeMarks: {
+    commentary: { enabled: boolean; color: string; backgroundColor: string };
     bookLine: { enabled: boolean; width: number; color: string };
     rectFrame: { enabled: boolean; borderType: 0 | 1; borderColor: string; fillColor: string };
     circleFrame: { enabled: boolean; borderType: 0 | 1; borderColor: string; fillColor: string };

@@ -86,45 +86,58 @@ function drawCover(ctx: CanvasRenderingContext2D, config: BookConfig, canvasConf
   ctx.fillStyle = "#f2ead9";
   ctx.fillRect(0, 0, cw, ch);
 
-  // 装饰中线
+  // 封面中间粗竖线
   ctx.strokeStyle = "#f2f2f2";
   ctx.lineWidth = 20;
   ctx.beginPath();
-  ctx.moveTo(plx, 0);
-  ctx.lineTo(plx, ch);
+  ctx.moveTo(plx, ch);
+  ctx.lineTo(plx, 0);
   ctx.stroke();
 
-  ctx.strokeStyle = "#f2f2f2";
+  // 封面中间细竖线 (plx ± 50)
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(plx - 50, 0);
-  ctx.lineTo(plx - 50, ch);
-  ctx.moveTo(plx + 50, 0);
-  ctx.lineTo(plx + 50, ch);
+  ctx.moveTo(plx - 50, ch);
+  ctx.lineTo(plx - 50, 0);
+  ctx.moveTo(plx + 50, ch);
+  ctx.lineTo(plx + 50, 0);
   ctx.stroke();
 
-  // 横线装饰
+  // 封面中间细横线 (从底部往上每 200px)
   ctx.lineWidth = 1;
-  for (let y = 0; y < ch; y += 200) {
+  for (let lid = 0; lid <= ch / 200; lid++) {
+    const ly = ch - 200 * lid;
     ctx.beginPath();
-    ctx.moveTo(plx - 50, y);
-    ctx.lineTo(plx + 50, y);
+    ctx.moveTo(plx - 50, ly);
+    ctx.lineTo(plx + 50, ly);
     ctx.stroke();
   }
 
-  // 书名竖排
-  drawVerticalText(ctx, config.title, plx - config.coverTitleFontSize / 2, config.coverTitleY, {
-    size: config.coverTitleFontSize,
-    color: config.coverFontColor || "black",
-    fontFamily: config.coverTitleFontFamily,
-  });
+  // 书名 — 左侧竖排 (从下往上: x = fontSize*1.5)
+  const titleChars = [...config.title];
+  const titleFS = config.coverTitleFontSize;
+  for (let i = 0; i < titleChars.length; i++) {
+    const fx = titleFS * 1.5;
+    const fy = ch - config.coverTitleY - titleFS * i * 1.2;
+    ctx.font = `${titleFS}px "${config.coverTitleFontFamily}", serif`;
+    ctx.fillStyle = config.coverFontColor || "black";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(titleChars[i], fx, fy);
+  }
 
-  // 作者竖排（沿用正文）
-  drawVerticalText(ctx, config.author, plx - config.coverAuthorFontSize / 2, config.coverAuthorY, {
-    size: config.coverAuthorFontSize,
-    color: config.coverFontColor || "black",
-    fontFamily: config.textFontFamily,
-  });
+  // 作者 — 左侧竖排 (x = fontSize*1.2)
+  const authorChars = [...config.author];
+  const authorFS = config.coverAuthorFontSize;
+  for (let i = 0; i < authorChars.length; i++) {
+    const fx = authorFS * 1.2;
+    const fy = ch - config.coverAuthorY - authorFS * i * 1.2;
+    ctx.font = `${authorFS}px "${config.textFontFamily}", serif`;
+    ctx.fillStyle = config.coverFontColor || "black";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(authorChars[i], fx, fy);
+  }
 }
 
 /** 绘制内容页 */
@@ -146,6 +159,26 @@ function drawPage(ctx: CanvasRenderingContext2D, page: Page, bookConfig: BookCon
 
   // 版心页码
   drawPageNumber(ctx, page.pageNumber, bookConfig, page.canvas);
+
+  // 批注背景色 — 按 cmBlockId 分块
+  const cmChars = page.characters.filter(ch => ch.isCommentary && ch.backgroundColor && ch.cmBlockId != null);
+  const blockMap = new Map<number, typeof cmChars>();
+  for (const c of cmChars) {
+    const list = blockMap.get(c.cmBlockId!) || [];
+    list.push(c);
+    blockMap.set(c.cmBlockId!, list);
+  }
+  for (const [, chars] of blockMap) {
+    const minX = Math.min(...chars.map(c => c.x));
+    const maxX = Math.max(...chars.map(c => c.x));
+    const minY = Math.min(...chars.map(c => c.y));
+    const maxY = Math.max(...chars.map(c => c.y));
+    const pad = chars[0].fontSize * 0.55;
+    ctx.save();
+    ctx.fillStyle = chars[0].backgroundColor!;
+    ctx.fillRect(minX - pad, minY - pad, maxX - minX + pad * 2, maxY - minY + pad * 2);
+    ctx.restore();
+  }
 
   // 装饰的填充层 — 在文字之前绘制，避免遮盖文字
   const textFontSize = bookConfig.fonts[0]?.textPointSize ?? 60;
@@ -194,17 +227,6 @@ function drawBorders(ctx: CanvasRenderingContext2D, canvas: CanvasConfig) {
     canvas.width - margins.left - margins.right - iMargin * 2,
     canvas.height - margins.top - margins.bottom - iMargin * 2,
   );
-
-  // 中缝线 (版心分隔)
-  if (leafCenterWidth > 0) {
-    const centerX = canvas.width / 2;
-    ctx.strokeStyle = innerBorder.color || "black";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(centerX, margins.top);
-    ctx.lineTo(centerX, canvas.height - margins.bottom);
-    ctx.stroke();
-  }
 
   // 分栏线 (column separator lines)
   // Formula from vintage.pl: x = ml + wd + clw * cid

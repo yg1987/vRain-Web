@@ -45,6 +45,7 @@ function makeConfig(): BookConfig {
     commentNoPositionPunctuation: "",
     commentRotatedPunctuation: "",
     decorativeMarks: {
+      commentary: { enabled: true, color: "#000000", backgroundColor: "#ffffff" },
       bookLine: { enabled: false, width: 0, color: "black" },
       rectFrame: { enabled: false, borderType: 0, borderColor: "black", fillColor: "black" },
       circleFrame: { enabled: false, borderType: 0, borderColor: "black", fillColor: "white" },

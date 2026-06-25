@@ -24,16 +24,31 @@ export default function DecorationPanel({ bookConfig, onChange }: Props) {
   );
 
   const marks = bookConfig.decorativeMarks;
-
+  // 兼容旧配置（无 commentary 字段）
+  const cm = marks.commentary || { enabled: true, color: "black", backgroundColor: "#f5e6d3" }; 
   return (
     <div className="config-panel">
       <h3 className="config-panel-title">🎭 装饰标记</h3>
       <p className="mb-3 text-xs text-ink/75">
-        控制文本中《》〔〕〈〉（）｛｝＜＞［］标记的渲染效果
+        控制文本中【】《》〔〕〈〉（）｛｝＜＞［］标记的渲染效果
       </p>
-      <p className="mb-4 text-[11px] text-amber-700/70">
-        💡 默认文本已包含所有标记示例，切换到「预览」标签查看效果
-      </p>
+
+      {/* 夹批 */}
+      <div className="config-group">
+        <ToggleRow
+          label="夹批注释 【】"
+          checked={cm.enabled}
+          onChange={(v) => update({ commentary: { ...cm, enabled: v } })}
+        />
+        {cm.enabled && (
+          <div className="mt-2 ml-6 space-y-2">
+            <ColorInput label="颜色" value={cm.color}
+              onChange={(v) => update({ commentary: { ...cm, color: v } })} />
+            <ColorInput label="背景色" value={cm.backgroundColor}
+              onChange={(v) => update({ commentary: { ...cm, backgroundColor: v } })} />
+          </div>
+        )}
+      </div>
 
       {/* 书名号线 */}
       <div className="config-group">

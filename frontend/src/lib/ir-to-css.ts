@@ -66,20 +66,34 @@ export function pageToHtml(page: Page, bookConfig: BookConfig, canvasConfig: Can
     html += renderPageNumber(page.pageNumber, bookConfig, page.canvas);
   }
 
-  // 正文字符
+  // 批注背景色 — SVG 矩形 (文字之前渲染)
+  const cmBlockMap = new Map<number, { x: number; y: number }[]>();
   for (const ch of page.characters) {
-    if (ch.isCommentary) continue; // 批注单独处理
-    const effectiveSize = ch.fontSize * (ch.scale || 1);
-    html += `<span class="vrain-char" style="position:absolute;left:${ch.x}px;top:${ch.y}px;font-size:${effectiveSize}px;color:${ch.color || 'black'};writing-mode:vertical-rl;display:block;width:${effectiveSize}px;height:${effectiveSize}px;line-height:1.2;text-align:center;">${escapeHtml(ch.char)}</span>`;
+    if (ch.isCommentary && ch.cmBlockId != null && ch.backgroundColor) {
+      const list = cmBlockMap.get(ch.cmBlockId) || [];
+      list.push({ x: ch.x, y: ch.y });
+      cmBlockMap.set(ch.cmBlockId, list);
+    }
+  }
+  if (cmBlockMap.size > 0) {
+    html += `<svg style="position:absolute;left:0;top:0;width:${width}px;height:${height}px;pointer-events:none;">`;
+    for (const [, pts] of cmBlockMap) {
+      const minX = Math.min(...pts.map(p => p.x));
+      const maxX = Math.max(...pts.map(p => p.x));
+      const minY = Math.min(...pts.map(p => p.y));
+      const maxY = Math.max(...pts.map(p => p.y));
+      const c = [...page.characters].find(ch => ch.isCommentary && cmBlockMap.has(ch.cmBlockId!));
+      const pad = (c?.fontSize ?? 24) * 0.55;
+      const color = c?.backgroundColor ?? "#f5e6d3";
+      html += `<rect x="${minX - pad}" y="${minY - pad}" width="${maxX - minX + pad * 2}" height="${maxY - minY + pad * 2}" fill="${color}" />`;
+    }
+    html += `</svg>`;
   }
 
-  // 夹批
-  for (const cm of page.commentaries) {
-    html += `<div class="vrain-commentary" style="position:absolute;left:${cm.x}px;top:${cm.y}px;font-size:${cm.fontSize}px;color:${cm.color || 'black'};writing-mode:vertical-rl;">`;
-    for (const c of cm.chars) {
-      html += escapeHtml(c);
-    }
-    html += `</div>`;
+  // 正文字符
+  for (const ch of page.characters) {
+    const effectiveSize = ch.fontSize * (ch.scale || 1);
+    html += `<span class="vrain-char" style="position:absolute;left:${ch.x}px;top:${ch.y}px;font-size:${effectiveSize}px;color:${ch.color || 'black'};writing-mode:vertical-rl;text-orientation:upright;transform:translate(-50%,-50%);text-align:center;">${escapeHtml(ch.char)}</span>`;
   }
 
   // 装饰标记 (SVG overlay)
@@ -110,27 +124,35 @@ export function generateCoverHtml(bookConfig: BookConfig, canvasConfig: CanvasCo
 
   let html = `<div class="vrain-cover" style="width:${cw}px;height:${ch}px;position:relative;overflow:hidden;background:#f2ead9;">`;
 
-  // 中缝竖线
-  html += `<div style="position:absolute;left:${plx}px;top:0;width:20px;height:100%;border-left:1px solid #e0d5c1;border-right:1px solid #e0d5c1;"></div>`;
-  html += `<div style="position:absolute;left:${plx - 50}px;top:0;width:1px;height:100%;background:#e0d5c1;"></div>`;
-  html += `<div style="position:absolute;left:${plx + 50}px;top:0;width:1px;height:100%;background:#e0d5c1;"></div>`;
-
-  // 横线装饰
-  for (let y = 0; y < ch; y += 200) {
-    html += `<div style="position:absolute;left:${plx - 50}px;top:${y}px;width:100px;height:1px;background:#e8ddd0;"></div>`;
+  // 中缝装饰 — SVG 精确绘制 (与预览一致)
+  html += `<svg style="position:absolute;left:0;top:0;width:${cw}px;height:${ch}px;">`;
+  // 粗竖线
+  html += `<line x1="${plx}" y1="0" x2="${plx}" y2="${ch}" stroke="#f2f2f2" stroke-width="20" />`;
+  // 细竖线
+  html += `<line x1="${plx - 50}" y1="0" x2="${plx - 50}" y2="${ch}" stroke="#f2f2f2" stroke-width="2" />`;
+  html += `<line x1="${plx + 50}" y1="0" x2="${plx + 50}" y2="${ch}" stroke="#f2f2f2" stroke-width="2" />`;
+  // 细横线 (从底部往上)
+  for (let lid = 0; lid <= ch / 200; lid++) {
+    const ly = ch - 200 * lid;
+    html += `<line x1="${plx - 50}" y1="${ly}" x2="${plx + 50}" y2="${ly}" stroke="#f2f2f2" stroke-width="1" />`;
   }
+  html += `</svg>`;
 
-  // 书名竖排
-  html += `<div style="position:absolute;left:${plx - titleFontSize / 2}px;top:${bookConfig.coverTitleY}px;width:${titleFontSize}px;height:auto;font-size:${titleFontSize}px;color:${coverFontColor};writing-mode:vertical-rl;text-align:center;">`;
-  for (const c of titleChars) {
-    html += `<span style="display:inline-block;">${escapeHtml(c)}</span>`;
+  // 书名 — 左侧竖排从下往上
+  html += `<div style="position:absolute;left:0;top:0;width:${cw}px;height:${ch}px;font-size:${titleFontSize}px;color:${coverFontColor};">`;
+  for (let i = 0; i < titleChars.length; i++) {
+    const fx = titleFontSize * 1.5;
+    const fy = ch - bookConfig.coverTitleY - titleFontSize * i * 1.2;
+    html += `<span style="position:absolute;left:${fx}px;top:${fy}px;transform:translate(-50%,-50%);">${escapeHtml(titleChars[i])}</span>`;
   }
   html += `</div>`;
 
-  // 作者竖排
-  html += `<div style="position:absolute;left:${plx - authorFontSize / 2}px;top:${bookConfig.coverAuthorY}px;width:${authorFontSize}px;height:auto;font-size:${authorFontSize}px;color:${coverFontColor};writing-mode:vertical-rl;text-align:center;">`;
-  for (const c of authorChars) {
-    html += `<span style="display:inline-block;">${escapeHtml(c)}</span>`;
+  // 作者 — 左侧竖排从下往上
+  html += `<div style="position:absolute;left:0;top:0;width:${cw}px;height:${ch}px;font-size:${authorFontSize}px;color:${coverFontColor};">`;
+  for (let i = 0; i < authorChars.length; i++) {
+    const fx = authorFontSize * 1.2;
+    const fy = ch - bookConfig.coverAuthorY - authorFontSize * i * 1.2;
+    html += `<span style="position:absolute;left:${fx}px;top:${fy}px;transform:translate(-50%,-50%);">${escapeHtml(authorChars[i])}</span>`;
   }
   html += `</div>`;
 
@@ -185,32 +207,29 @@ ${pagesHtml}
 /** 渲染边框 */
 function renderBorders(canvas: CanvasConfig): string {
   const { margins, outerBorder, innerBorder, leafCenterWidth, leafCol } = canvas;
-  let html = "";
+  let svg = `<svg style="position:absolute;left:0;top:0;width:${canvas.width}px;height:${canvas.height}px;pointer-events:none;">`;
 
-  // 外框
-  html += `<div style="position:absolute;left:${margins.left}px;top:${margins.top}px;width:${canvas.width - margins.left - margins.right}px;height:${canvas.height - margins.top - margins.bottom}px;border:${outerBorder.width || 10}px solid ${outerBorder.color || 'black'};"></div>`;
+  // 外框 — 用 SVG rect 精确描边 (和 Canvas strokeRect 一致)
+  const ox = margins.left, oy = margins.top;
+  const ow = canvas.width - margins.left - margins.right;
+  const oh = canvas.height - margins.top - margins.bottom;
+  svg += `<rect x="${ox}" y="${oy}" width="${ow}" height="${oh}" fill="none" stroke="${outerBorder.color || 'black'}" stroke-width="${outerBorder.width || 10}" />`;
 
   // 内框
   const iMargin = 5;
-  html += `<div style="position:absolute;left:${margins.left + iMargin}px;top:${margins.top + iMargin}px;width:${canvas.width - margins.left - margins.right - iMargin * 2}px;height:${canvas.height - margins.top - margins.bottom - iMargin * 2}px;border:${innerBorder.width || 1}px solid ${innerBorder.color || 'black'};"></div>`;
+  svg += `<rect x="${ox + iMargin}" y="${oy + iMargin}" width="${ow - iMargin * 2}" height="${oh - iMargin * 2}" fill="none" stroke="${innerBorder.color || 'black'}" stroke-width="${innerBorder.width || 1}" />`;
 
-  // 分栏线
+  // 分栏线 — 与预览公式一致
   const usableWidth = canvas.width - margins.left - margins.right - leafCenterWidth;
   const colWidth = usableWidth / leafCol;
-  html += `<div style="position:absolute;left:${margins.left}px;top:${margins.top}px;width:1px;height:${canvas.height - margins.top - margins.bottom}px;">`;
-  for (let i = 0; i <= leafCol; i++) {
-    const x = margins.left + (i <= leafCol / 2 ? i * colWidth : i * colWidth + leafCenterWidth);
-    html += `<div style="position:absolute;left:${x}px;width:0.5px;height:100%;background:#e0e0e0;"></div>`;
-  }
-  html += `</div>`;
-
-  // 中缝线
-  if (leafCenterWidth > 0) {
-    const centerX = canvas.width / 2;
-    html += `<div style="position:absolute;left:${centerX}px;top:${margins.top}px;width:1px;height:${canvas.height - margins.top - margins.bottom}px;background:${innerBorder.color || 'black'};"></div>`;
+  for (let cid = 1; cid <= leafCol; cid++) {
+    const wd = cid > leafCol / 2 ? leafCenterWidth - colWidth : 0;
+    const x = margins.left + wd + colWidth * cid;
+    svg += `<line x1="${x}" y1="${margins.top}" x2="${x}" y2="${canvas.height - margins.bottom}" stroke="#e0e0e0" stroke-width="0.5" />`;
   }
 
-  return html;
+  svg += `</svg>`;
+  return svg;
 }
 
 /** 渲染鱼尾 */
@@ -222,14 +241,17 @@ function renderFishTails(canvas: CanvasConfig, width: number, height: number): s
 
   // 上鱼尾
   html += `<div style="position:absolute;left:${centerX - fishTail.top.lineWidth / 2}px;top:${fishTail.top.y}px;width:${fishTail.top.lineWidth}px;height:${fishTail.top.rectHeight}px;background:${fishTail.top.color || 'black'};"></div>`;
-  html += `<div style="position:absolute;left:${centerX - fishTail.top.lineWidth * 3}px;top:${fishTail.top.y + fishTail.top.rectHeight}px;width:${fishTail.top.lineWidth * 6}px;height:${fishTail.top.triHeight}px;background:${fishTail.top.color || 'black'};clip-path:polygon(50% 100%, 0 0, 100% 0);"></div>`;
+  // 上鱼尾 — direction=0 三角形向下
+  html += `<div style="position:absolute;left:${centerX - fishTail.top.lineWidth * 3}px;top:${fishTail.top.y + fishTail.top.rectHeight}px;width:${fishTail.top.lineWidth * 6}px;height:${fishTail.top.triHeight}px;background:${fishTail.top.color || 'black'};clip-path:polygon(50% 0%, 0 100%, 100% 100%);"></div>`;
 
   // 下鱼尾
-  const btmDir = fishTail.bottom.direction || 1;
-  const triDir = btmDir === 1 ? -1 : 1;
-  const triY = fishTail.bottom.y + fishTail.bottom.rectHeight + triDir * fishTail.bottom.triHeight;
+  const btmDir: number = fishTail.bottom.direction ?? 1;
+  // 三角形: 0=向下 (tipY=0), 1=向上 (tipY=100)
+  const tipY = btmDir === 0 ? '0' : '100';
+  const baseY = btmDir === 0 ? '100' : '0';
+  const triY = fishTail.bottom.y + fishTail.bottom.rectHeight; // 紧贴鱼尾主体
   html += `<div style="position:absolute;left:${centerX - fishTail.bottom.lineWidth / 2}px;top:${fishTail.bottom.y}px;width:${fishTail.bottom.lineWidth}px;height:${fishTail.bottom.rectHeight}px;background:${fishTail.bottom.color || 'black'};"></div>`;
-  html += `<div style="position:absolute;left:${centerX - fishTail.bottom.lineWidth * 3}px;top:${triY}px;width:${fishTail.bottom.lineWidth * 6}px;height:${fishTail.bottom.triHeight}px;background:${fishTail.bottom.color || 'black'};clip-path:polygon(50% ${triDir === 1 ? '0' : '100'}%, 0 ${triDir === 1 ? '0' : '100'}%, 100% ${triDir === 1 ? '0' : '100'}%);"></div>`;
+  html += `<div style="position:absolute;left:${centerX - fishTail.bottom.lineWidth * 3}px;top:${triY}px;width:${fishTail.bottom.lineWidth * 6}px;height:${fishTail.bottom.triHeight}px;background:${fishTail.bottom.color || 'black'};clip-path:polygon(50% ${tipY}%, 0 ${baseY}%, 100% ${baseY}%);"></div>`;
 
   return html;
 }
@@ -279,28 +301,82 @@ function renderPageNumber(pageNum: number, bookConfig: BookConfig, canvas: Canva
 function renderDecorationSvg(dec: import("../types/layout").Decoration, width: number, height: number): string {
   const { x1, y1, x2, y2 } = dec.bounds;
   const { color, strokeWidth } = dec;
-  let svg = `<g stroke="${color || 'black'}" stroke-width="${strokeWidth || 2}" fill="none">`;
+  let svg = `<g>`; // fill/stroke 按元素单独设置
 
   switch (dec.type) {
     case "wavyLine":
-      // 简化的波浪线 — 用多条直线模拟
-      svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" />`;
+      svg += `<g stroke="${color || 'black'}" stroke-width="${strokeWidth || 2}" fill="none">`;
+      if (dec.charPositions && dec.charPositions.length > 0) {
+        const x = dec.charPositions[0].x + 28;
+        const y1 = dec.charPositions[0].y;
+        const y2 = dec.charPositions[dec.charPositions.length - 1].y;
+        svg += `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke-dasharray="3,3" />`;
+      } else {
+        svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" />`;
+      }
+      svg += `</g>`;
       break;
     case "lineNote":
-      svg += `<line x1="${x1}" y1="${y1}" x2="${x1}" y2="${y2}" />`;
+      svg += `<g stroke="${color || 'black'}" stroke-width="${strokeWidth || 2}" fill="none">`;
+      if (dec.charPositions && dec.charPositions.length > 0) {
+        const lx = dec.charPositions[0].x + (dec.noteOffsetX ?? 0);
+        const ly1 = dec.charPositions[0].y;
+        const ly2 = dec.charPositions[dec.charPositions.length - 1].y;
+        svg += `<line x1="${lx}" y1="${ly1}" x2="${lx}" y2="${ly2}" />`;
+      } else {
+        svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" />`;
+      }
+      svg += `</g>`;
       break;
     case "rectFrame":
-      svg += `<rect x="${x1}" y="${y1}" width="${x2 - x1}" height="${y2 - y1}" rx="4" ry="4" />`;
+      // 先填充再描边
+      if (dec.fillColor) {
+        svg += `<rect x="${x1}" y="${y1}" width="${x2 - x1}" height="${y2 - y1}" rx="4" ry="4" fill="${dec.fillColor}" stroke="none" />`;
+      }
+      svg += `<rect x="${x1}" y="${y1}" width="${x2 - x1}" height="${y2 - y1}" rx="4" ry="4" fill="none" stroke="${color || 'black'}" stroke-width="${strokeWidth || 2}" />`;
       break;
     case "circleFrame":
-      const r = Math.max(x2 - x1, y2 - y1) / 2;
-      svg += `<circle cx="${(x1 + x2) / 2}" cy="${(y1 + y2) / 2}" r="${r}" />`;
+      if (dec.charPositions && dec.charPositions.length > 0) {
+        for (const cp of dec.charPositions) {
+          const cr = (strokeWidth || 2) * 3;
+          if (dec.fillColor) {
+            svg += `<circle cx="${cp.x}" cy="${cp.y}" r="${cr}" fill="${dec.fillColor}" stroke="none" />`;
+          }
+          svg += `<circle cx="${cp.x}" cy="${cp.y}" r="${cr}" fill="none" stroke="${color || 'black'}" stroke-width="${strokeWidth || 2}" />`;
+        }
+      } else {
+        const cr = Math.max(x2 - x1, y2 - y1) / 2;
+        if (dec.fillColor) {
+          svg += `<circle cx="${(x1 + x2) / 2}" cy="${(y1 + y2) / 2}" r="${cr}" fill="${dec.fillColor}" stroke="none" />`;
+        }
+        svg += `<circle cx="${(x1 + x2) / 2}" cy="${(y1 + y2) / 2}" r="${cr}" fill="none" stroke="${color || 'black'}" stroke-width="${strokeWidth || 2}" />`;
+      }
       break;
     case "circleNote":
-      svg += `<circle cx="${x1}" cy="${y1}" r="${strokeWidth * 2}" />`;
+      svg += `<g stroke="${color || 'black'}" stroke-width="${strokeWidth || 2}" fill="none">`;
+      if (dec.charPositions && dec.charPositions.length > 0) {
+        const ox = (dec.noteOffsetX ?? 0);
+        const oy = (dec.noteOffsetY ?? 0);
+        const nr = dec.noteRadius ?? (strokeWidth || 2) * 2;
+        for (const cp of dec.charPositions) {
+          svg += `<circle cx="${cp.x + ox}" cy="${cp.y + oy}" r="${nr}" />`;
+        }
+      } else {
+        svg += `<circle cx="${x1}" cy="${y1}" r="${strokeWidth * 2}" />`;
+      }
+      svg += `</g>`;
       break;
     case "pointNote":
-      svg += `<text x="${x1}" y="${y1}" fill="${color}" font-size="${strokeWidth * 4}" text-anchor="middle">、</text>`;
+      if (dec.charPositions && dec.charPositions.length > 0) {
+        const pox = (dec.noteOffsetX ?? 0);
+        const poy = (dec.noteOffsetY ?? 0);
+        const ps = dec.noteSize ?? (strokeWidth || 2) * 4;
+        for (const cp of dec.charPositions) {
+          svg += `<text x="${cp.x + pox}" y="${cp.y + poy}" fill="${color || 'black'}" font-size="${ps}" text-anchor="middle">、</text>`;
+        }
+      } else {
+        svg += `<text x="${x1}" y="${y1}" fill="${color || 'black'}" font-size="${strokeWidth * 4}" text-anchor="middle">、</text>`;
+      }
       break;
   }
 

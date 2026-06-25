@@ -134,6 +134,7 @@ export function parseBookConfig(raw: ConfigMap): BookConfig {
     commentNoPositionPunctuation: str("comment_comma_nop"),
     commentRotatedPunctuation: str("comment_comma_90"),
     decorativeMarks: {
+      commentary: { enabled: true, color: "black", backgroundColor: "#ffffff" },
       bookLine: {
         enabled: bool("if_tag_bookline"),
         width: int("book_line_width", 5),

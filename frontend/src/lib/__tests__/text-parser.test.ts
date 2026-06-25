@@ -53,6 +53,7 @@ function makeConfig(partial: Partial<BookConfig>): BookConfig {
     commentNoPositionPunctuation: "、|，|。",
     commentRotatedPunctuation: "「」『」…",
     decorativeMarks: {
+      commentary: { enabled: true, color: "#000000", backgroundColor: "#ffffff" },
       bookLine: { enabled: true, width: 2, color: "black" },
       rectFrame: { enabled: true, borderType: 1, borderColor: "black", fillColor: "black" },
       circleFrame: { enabled: false, borderType: 1, borderColor: "black", fillColor: "white" },
