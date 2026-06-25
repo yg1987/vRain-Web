@@ -157,9 +157,25 @@ export function paginate(
       const half = Math.ceil(cmChars.length / 2);
       const rightCol = cmChars.slice(0, half);
       const leftCol = cmChars.slice(half);
-      let cmCharCount = 0;
       // 逐行配对，紧密排列 (行间距 = 批注字号)
       const cmSpacing = cmFontSize * 1.35;
+      // 预计算批注占用的网格行数
+      const cmGridRows = Math.max(1, Math.ceil(rightCol.length * cmSpacing / grid.rowHeight));
+      // 检查当前列剩余行是否够放下整个夹批
+      const rowsRemainingInCol = grid.rowNum - (pcnt % grid.rowNum);
+      if (cmGridRows > rowsRemainingInCol) {
+        // 当前列装不下，跳到下一列开头
+        const nextColStart = (Math.floor(pcnt / grid.rowNum) + 1) * grid.rowNum;
+        if (nextColStart >= pageCharsNum) {
+          // 已是最后一列，推到新页
+          pages.push({ ...currentPage });
+          currentPage = createNewPage(pages.length + 1, canvas);
+          pcnt = 0;
+        } else {
+          pcnt = nextColStart;
+        }
+      }
+      let cmCharCount = 0;
       const startY = textPositions.length > 0 && pcnt < textPositions.length
         ? textPositions[Math.min(pcnt, textPositions.length - 1)]?.y ?? 0 : 0;
       for (let row = 0; row < rightCol.length; row++) {
@@ -198,8 +214,6 @@ export function paginate(
           flatIdx++;
         }
       }
-      // 批注占用的网格行数
-      const cmGridRows = Math.max(1, Math.ceil(rightCol.length * cmSpacing / grid.rowHeight));
       charIndexMap[charIndex] = 0; // 标记非跳过
       pcnt += cmGridRows;
       commentaryFlatCount[charIndex] = cmCharCount;
