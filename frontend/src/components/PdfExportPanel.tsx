@@ -31,7 +31,6 @@ export default function PdfExportPanel({ bookConfig, canvasConfig, totalPages, p
   const [chapterFrom, setChapterFrom] = useState(1);
   const [chapterTo, setChapterTo] = useState(chapterCount);
   const [testPages, setTestPages] = useState(0);
-  const [compress, setCompress] = useState(false);
   const [includeCover, setIncludeCover] = useState(true);
 
   // 文本文件数量变化时重置范围
@@ -63,14 +62,13 @@ export default function PdfExportPanel({ bookConfig, canvasConfig, totalPages, p
     // 后端 filterPagesByRange 根据 page.fileIndex 精确过滤
     generate({
       testPages: testPages > 0 ? testPages : undefined,
-      compress,
       includeCover,
       includePreface: includePreface || undefined,
       includeAppendix: includeAppendix || undefined,
       fileFrom: chapterFrom,
       fileTo: chapterTo,
     });
-  }, [chapterFrom, chapterTo, includePreface, includeAppendix, testPages, compress, includeCover, generate]);
+  }, [chapterFrom, chapterTo, includePreface, includeAppendix, testPages, includeCover, generate]);
 
   const handleDownload = () => {
     if (!pdfState.pdfUrl) return;
@@ -181,16 +179,6 @@ export default function PdfExportPanel({ bookConfig, canvasConfig, totalPages, p
         <label className="flex cursor-pointer items-center gap-2 text-sm">
           <input
             type="checkbox"
-            checked={compress}
-            onChange={(e) => setCompress(e.target.checked)}
-            className="accent-vermilion"
-          />
-          <span>压缩 PDF</span>
-        </label>
-
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
             checked={includeCover}
             onChange={(e) => setIncludeCover(e.target.checked)}
             className="accent-vermilion"
@@ -240,9 +228,6 @@ export default function PdfExportPanel({ bookConfig, canvasConfig, totalPages, p
         </p>
         <p>
           🧪 <b>测试模式</b> — 仅生成指定页数（1-10 页），大幅缩短生成时间，用于快速验证排版参数和标记效果
-        </p>
-        <p>
-          📦 <b>压缩 PDF</b> — 使用 Ghostscript 压缩输出文件，减小文件体积（需系统安装 gs 命令）
         </p>
         <p>
           🖼 <b>包含封面</b> — 勾选后在 PDF 开头生成封面页，显示书名和作者信息

@@ -66,7 +66,7 @@ export function pageToHtml(page: Page, bookConfig: BookConfig, canvasConfig: Can
     html += renderPageNumber(page.pageNumber, bookConfig, page.canvas);
   }
 
-  // 批注背景色 — SVG 矩形 (文字之前渲染)
+  // 批注背景色 — 按 cmBlockId + 列分组，每列独立填满列宽
   const cmBlockMap = new Map<number, { x: number; y: number }[]>();
   for (const ch of page.characters) {
     if (ch.isCommentary && ch.cmBlockId != null && ch.backgroundColor) {
@@ -76,16 +76,52 @@ export function pageToHtml(page: Page, bookConfig: BookConfig, canvasConfig: Can
     }
   }
   if (cmBlockMap.size > 0) {
+    const { margins: cmMargins, leafCenterWidth: cmLcw, leafCol: cmLc } = page.canvas;
+    const cmUsableW = page.canvas.width - cmMargins.left - cmMargins.right - cmLcw;
+    const cmColW = cmUsableW / cmLc;
+    const cmHalf = cmLc / 2;
+    // 预计算所有列中心
+    const cmColCenters: number[] = [];
+    for (let ci = 1; ci <= cmLc; ci++) {
+      cmColCenters.push(
+        ci <= cmHalf
+          ? page.canvas.width - cmMargins.right - cmColW * ci + cmColW / 2
+          : page.canvas.width - cmMargins.right - cmColW * ci - cmLcw + cmColW / 2,
+      );
+    }
     html += `<svg style="position:absolute;left:0;top:0;width:${width}px;height:${height}px;pointer-events:none;">`;
-    for (const [, pts] of cmBlockMap) {
-      const minX = Math.min(...pts.map(p => p.x));
-      const maxX = Math.max(...pts.map(p => p.x));
-      const minY = Math.min(...pts.map(p => p.y));
-      const maxY = Math.max(...pts.map(p => p.y));
-      const c = [...page.characters].find(ch => ch.isCommentary && cmBlockMap.has(ch.cmBlockId!));
+    for (const [blockId, pts] of cmBlockMap) {
+      // 按最近列中心分组
+      const colPts = new Map<number, { x: number; y: number }[]>();
+      for (const p of pts) {
+        let nearest = 0, minDist = Math.abs(p.x - cmColCenters[0]);
+        for (let i = 1; i < cmColCenters.length; i++) {
+          const d = Math.abs(p.x - cmColCenters[i]);
+          if (d < minDist) { minDist = d; nearest = i; }
+        }
+        const g = colPts.get(nearest) || [];
+        g.push(p);
+        colPts.set(nearest, g);
+      }
+      const c = page.characters.find(ch => ch.isCommentary && ch.cmBlockId === blockId && ch.backgroundColor);
       const pad = (c?.fontSize ?? 24) * 0.55;
       const color = c?.backgroundColor ?? "#f5e6d3";
-      html += `<rect x="${minX - pad}" y="${minY - pad}" width="${maxX - minX + pad * 2}" height="${maxY - minY + pad * 2}" fill="${color}" />`;
+      for (const [colIdx, g] of colPts) {
+        const i = colIdx + 1;
+        const colLeft = i <= cmHalf
+          ? page.canvas.width - cmMargins.right - cmColW * i
+          : page.canvas.width - cmMargins.right - cmColW * i - cmLcw;
+        const colRight = colLeft + cmColW;
+        const minY = Math.min(...g.map(p => p.y));
+        const maxY = Math.max(...g.map(p => p.y));
+        html += `<rect x="${colLeft}" y="${minY - pad}" width="${colRight - colLeft}" height="${maxY - minY + pad * 2}" fill="${color}" />`;
+      }
+    }
+    // 跨列背景可能遮盖列分隔线，重画一遍
+    for (let cid = 1; cid <= cmLc; cid++) {
+      const wd = cid > cmHalf ? cmLcw - cmColW : 0;
+      const x = cmMargins.left + wd + cmColW * cid;
+      html += `<line x1="${x}" y1="${cmMargins.top}" x2="${x}" y2="${page.canvas.height - cmMargins.bottom}" stroke="#e0e0e0" stroke-width="0.5" />`;
     }
     html += `</svg>`;
   }
@@ -138,20 +174,20 @@ export function generateCoverHtml(bookConfig: BookConfig, canvasConfig: CanvasCo
   }
   html += `</svg>`;
 
-  // 书名 — 左侧竖排从下往上
+  // 书名 — 左侧竖排从上往下
   html += `<div style="position:absolute;left:0;top:0;width:${cw}px;height:${ch}px;font-size:${titleFontSize}px;color:${coverFontColor};">`;
   for (let i = 0; i < titleChars.length; i++) {
     const fx = titleFontSize * 1.5;
-    const fy = ch - bookConfig.coverTitleY - titleFontSize * i * 1.2;
+    const fy = bookConfig.coverTitleY + titleFontSize * i * 1.2;
     html += `<span style="position:absolute;left:${fx}px;top:${fy}px;transform:translate(-50%,-50%);">${escapeHtml(titleChars[i])}</span>`;
   }
   html += `</div>`;
 
-  // 作者 — 左侧竖排从下往上
+  // 作者 — 左侧竖排从上往下
   html += `<div style="position:absolute;left:0;top:0;width:${cw}px;height:${ch}px;font-size:${authorFontSize}px;color:${coverFontColor};">`;
   for (let i = 0; i < authorChars.length; i++) {
     const fx = authorFontSize * 1.2;
-    const fy = ch - bookConfig.coverAuthorY - authorFontSize * i * 1.2;
+    const fy = bookConfig.coverAuthorY + authorFontSize * i * 1.2;
     html += `<span style="position:absolute;left:${fx}px;top:${fy}px;transform:translate(-50%,-50%);">${escapeHtml(authorChars[i])}</span>`;
   }
   html += `</div>`;

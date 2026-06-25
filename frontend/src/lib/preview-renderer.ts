@@ -113,29 +113,29 @@ function drawCover(ctx: CanvasRenderingContext2D, config: BookConfig, canvasConf
     ctx.stroke();
   }
 
-  // 书名 — 左侧竖排 (从下往上: x = fontSize*1.5)
+  // 书名 — 左侧竖排 (从上往下)
   const titleChars = [...config.title];
   const titleFS = config.coverTitleFontSize;
   for (let i = 0; i < titleChars.length; i++) {
     const fx = titleFS * 1.5;
-    const fy = ch - config.coverTitleY - titleFS * i * 1.2;
+    const fy = config.coverTitleY + titleFS * i * 1.2;
     ctx.font = `${titleFS}px "${config.coverTitleFontFamily}", serif`;
     ctx.fillStyle = config.coverFontColor || "black";
     ctx.textAlign = "left";
-    ctx.textBaseline = "bottom";
+    ctx.textBaseline = "top";
     ctx.fillText(titleChars[i], fx, fy);
   }
 
-  // 作者 — 左侧竖排 (x = fontSize*1.2)
+  // 作者 — 左侧竖排 (从上往下)
   const authorChars = [...config.author];
   const authorFS = config.coverAuthorFontSize;
   for (let i = 0; i < authorChars.length; i++) {
     const fx = authorFS * 1.2;
-    const fy = ch - config.coverAuthorY - authorFS * i * 1.2;
+    const fy = config.coverAuthorY + authorFS * i * 1.2;
     ctx.font = `${authorFS}px "${config.textFontFamily}", serif`;
     ctx.fillStyle = config.coverFontColor || "black";
     ctx.textAlign = "left";
-    ctx.textBaseline = "bottom";
+    ctx.textBaseline = "top";
     ctx.fillText(authorChars[i], fx, fy);
   }
 }
