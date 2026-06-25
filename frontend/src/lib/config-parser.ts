@@ -136,7 +136,7 @@ export function parseBookConfig(raw: ConfigMap): BookConfig {
     decorativeMarks: {
       bookLine: {
         enabled: bool("if_tag_bookline"),
-        width: int("book_line_width", 2),
+        width: int("book_line_width", 5),
         color: str("book_line_color", "#000000"),
       },
       rectFrame: {

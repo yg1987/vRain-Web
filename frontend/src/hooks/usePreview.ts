@@ -56,10 +56,19 @@ export function usePreview(options: UsePreviewOptions) {
     try {
       setState((s) => ({ ...s, isProcessing: true }));
 
-      // 1. 计算网格
+      // 1. 计算网格 (根据字号自动调优行数，留足上下边界)
       const textFontSize = bookConfig.fonts[0]?.textPointSize ?? 60;
-      const grid = computeGridMetrics(canvasConfig, bookConfig.rowNum);
-      const positions = generatePositionGrid(canvasConfig, grid, bookConfig.rowNum, bookConfig.rowDeltaY);
+      let effectiveRowNum = bookConfig.rowNum;
+      // 有效内容高度 = 画布高 - 边距 - 一个字号 (上下各半字避让边框)
+      const effectiveHeight = canvasConfig.height - canvasConfig.margins.top - canvasConfig.margins.bottom - textFontSize;
+      const naturalRowHeight = effectiveHeight / effectiveRowNum;
+      const minRowHeight = textFontSize * 1.25;
+      if (naturalRowHeight < minRowHeight) {
+        effectiveRowNum = Math.floor(effectiveHeight / minRowHeight);
+        if (effectiveRowNum < 1) effectiveRowNum = 1;
+      }
+      const grid = computeGridMetrics(canvasConfig, effectiveRowNum);
+      const positions = generatePositionGrid(canvasConfig, grid, effectiveRowNum, bookConfig.rowDeltaY);
 
       // 2. 解析文本文件 → 预处理字符
       const allChars: string[] = [];
@@ -173,8 +182,26 @@ export function usePreview(options: UsePreviewOptions) {
 
       // 6. 装饰标记 → 像素坐标 → 分配到各页
       if (allDecorationRanges.length > 0) {
-        const resolved = resolveDecorationRanges(pages, allDecorationRanges, bookConfig);
-        pages = assignDecorationsToPages(pages, resolved, allDecorationRanges);
+        // 统计 allChars 中每位置之前被跳过的控制标记数 (T, % 等)
+        const skippedBefore: number[] = new Array(allChars.length + 1).fill(0);
+        let skippedCount = 0;
+        for (let i = 0; i < allChars.length; i++) {
+          skippedBefore[i] = skippedCount;
+          if (paginated.charIndexMap[i] === -1) skippedCount++;
+        }
+        skippedBefore[allChars.length] = skippedCount;
+
+        // 修正 DecorationRange 索引：allChars 空间 → Page.characters 展平空间
+        const correctedRanges: DecorationRange[] = [];
+        for (const r of allDecorationRanges) {
+          const start = r.startCharIndex - skippedBefore[r.startCharIndex];
+          const end = r.endCharIndex - skippedBefore[r.endCharIndex];
+          if (start >= 0 && end > start) {
+            correctedRanges.push({ ...r, startCharIndex: start, endCharIndex: end });
+          }
+        }
+        const resolved = resolveDecorationRanges(pages, correctedRanges, bookConfig);
+        pages = assignDecorationsToPages(pages, resolved, correctedRanges);
       }
 
       return pages;

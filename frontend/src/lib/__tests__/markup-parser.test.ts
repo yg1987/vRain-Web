@@ -230,8 +230,8 @@ describe("assignDecorationsToPages", () => {
     ];
 
     const decorations: Decoration[] = [
-      { type: "wavyLine", bounds: { x1: 85, y1: 185, x2: 115, y2: 295 }, strokeWidth: 2, color: "black" },
-      { type: "rectFrame", bounds: { x1: 185, y1: 185, x2: 215, y2: 295 }, strokeWidth: 1, color: "black" },
+      { type: "wavyLine", bounds: { x1: 85, y1: 185, x2: 115, y2: 295 }, strokeWidth: 2, color: "black", pageIndex: 0 },
+      { type: "rectFrame", bounds: { x1: 185, y1: 185, x2: 215, y2: 295 }, strokeWidth: 1, color: "black", pageIndex: 1 },
     ];
 
     const result = assignDecorationsToPages(pages, decorations, ranges);

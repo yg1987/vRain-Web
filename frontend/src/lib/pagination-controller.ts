@@ -18,6 +18,8 @@ import type { BookConfig, CanvasConfig, Page, Character, Commentary, ControlMark
 export interface PaginatedResult {
   pages: Page[];
   controlMarks: ControlMarkWithIndex[];
+  /** allChars 索引 → 展平的 Page.characters 数组中的索引 (-1 = 控制标记未入页) */
+  charIndexMap: number[];
 }
 
 // ControlMarkWithIndex now imported from types/layout
@@ -44,6 +46,10 @@ export function paginate(
   const { colNum, rowNum, pageCharsNum } = grid;
   const pages: Page[] = [];
   const controlMarks: ControlMarkWithIndex[] = [];
+
+  // charIndexMap: allChars 索引 → 展平后的页面字符索引
+  const charIndexMap: number[] = new Array(characters.length).fill(-1);
+  let flatIdx = 0; // 已推入页面的字符累计计数
 
   // 初始化第一页
   let currentPage: Page = createNewPage(1, canvas);
@@ -124,6 +130,7 @@ export function paginate(
           color: config.textFontColor,
           isCommentary: false,
         });
+        charIndexMap[charIndex] = flatIdx++;
         charIndex++;
         continue;
       }
@@ -171,6 +178,7 @@ export function paginate(
         color: zoomInfo?.color || config.textFontColor,
         isCommentary: false,
       });
+      charIndexMap[charIndex] = flatIdx++;
       pcnt++;
     }
 
@@ -182,7 +190,7 @@ export function paginate(
     pages.push(currentPage);
   }
 
-  return { pages, controlMarks };
+  return { pages, controlMarks, charIndexMap };
 }
 
 /** 网格信息 */

@@ -247,6 +247,8 @@ export function resolveDecorationRanges(
   if (ranges.length === 0) return [];
 
   const result: Decoration[] = [];
+  const fontSize = config.fonts[0]?.textPointSize ?? 60;
+  const padding = fontSize * 0.45; // 包围盒边距跟随字号缩放
 
   // 构建全局字符索引 → { pageIndex, charIndex } 的映射
   let totalChars = 0;
@@ -268,30 +270,47 @@ export function resolveDecorationRanges(
     const end = Math.min(totalChars, range.endCharIndex);
     if (start >= end) continue;
 
-    // 收集范围内的所有字符坐标
+    // 收集范围内的所有字符坐标，同时记录所属页面
     const positions: Position[] = [];
+    let decorationPageIndex = 0;
     for (let gci = start; gci < end; gci++) {
       const entry = charMap[gci];
       if (!entry) continue;
+      if (gci === start) decorationPageIndex = entry.pageIndex;
       const ch = pages[entry.pageIndex].characters[entry.charIndex];
       positions.push({ x: ch.x, y: ch.y });
     }
 
     if (positions.length === 0) continue;
 
-    // 计算包围盒
-    const minX = Math.min(...positions.map((p) => p.x)) - 15;  // 左侧额外间距
-    const maxX = Math.max(...positions.map((p) => p.x)) + 15;  // 右侧额外间距
-    const minY = Math.min(...positions.map((p) => p.y)) - 15;  // 上方额外间距
-    const maxY = Math.max(...positions.map((p) => p.y)) + 15;  // 下方额外间距
+    // 按 x 坐标分组（同列字符归一组），每组独立生成一个 Decoration
+    // 解决装饰标记跨列时包围盒覆盖整列高度的问题
+    const columnGroups: Map<number, Position[]> = new Map();
+    for (const p of positions) {
+      const colKey = Math.round(p.x / 10) * 10; // 10px 粒度区分列
+      if (!columnGroups.has(colKey)) columnGroups.set(colKey, []);
+      columnGroups.get(colKey)!.push(p);
+    }
 
-    result.push({
-      type: range.type,
-      bounds: { x1: minX, y1: minY, x2: maxX, y2: maxY },
-      strokeWidth: range.strokeWidth,
-      color: range.color,
-      charPositions: positions,
-    });
+    for (const [, group] of columnGroups) {
+      // 组内按 y 排序
+      group.sort((a, b) => a.y - b.y);
+
+      // 计算该列的包围盒
+      const minX = Math.min(...group.map((p) => p.x)) - padding;
+      const maxX = Math.max(...group.map((p) => p.x)) + padding;
+      const minY = group[0].y - padding;
+      const maxY = group[group.length - 1].y + padding;
+
+      result.push({
+        type: range.type,
+        bounds: { x1: minX, y1: minY, x2: maxX, y2: maxY },
+        strokeWidth: range.strokeWidth,
+        color: range.color,
+        charPositions: group,
+        pageIndex: decorationPageIndex,
+      });
+    }
   }
 
   return result;
@@ -304,40 +323,17 @@ export function resolveDecorationRanges(
 export function assignDecorationsToPages(
   pages: Page[],
   decorations: Decoration[],
-  ranges: DecorationRange[],
+  _ranges: DecorationRange[],
 ): Page[] {
-  if (decorations.length === 0 || ranges.length === 0) return pages;
+  if (decorations.length === 0) return pages;
 
-  // 构建全局字符索引 → pageIndex 的映射
-  let totalChars = 0;
-  const charToPage: number[] = [];
-  for (let pi = 0; pi < pages.length; pi++) {
-    for (let ci = 0; ci < pages[pi].characters.length; ci++) {
-      charToPage[totalChars] = pi;
-      totalChars++;
-    }
-  }
-
-  if (totalChars === 0) return pages;
-
-  // 为每个页面收集装饰
   const pageDecorations: Decoration[][] = pages.map(() => []);
 
-  for (let ri = 0; ri < ranges.length; ri++) {
-    const range = ranges[ri];
-    const decoration = decorations[ri];
-    if (!decoration) continue;
-
-    const start = Math.max(0, range.startCharIndex);
-    const end = Math.min(totalChars, range.endCharIndex);
-    if (start >= end) continue;
-
-    // 确定装饰所在的页面
-    const startPage = charToPage[start] ?? 0;
-    const endPage = charToPage[Math.min(end, totalChars - 1)] ?? pages.length - 1;
-
-    // 跨页装饰——分配到起始页
-    pageDecorations[startPage].push(decoration);
+  for (const dec of decorations) {
+    const pi = dec.pageIndex ?? 0;
+    if (pi < pageDecorations.length) {
+      pageDecorations[pi].push(dec);
+    }
   }
 
   // 写入页面

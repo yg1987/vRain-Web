@@ -159,8 +159,9 @@ function drawPage(ctx: CanvasRenderingContext2D, page: Page, bookConfig: BookCon
   }
 
   // 装饰
+  const textFontSize = bookConfig.fonts[0]?.textPointSize ?? 60;
   for (const dec of page.decorations) {
-    drawDecoration(ctx, dec);
+    drawDecoration(ctx, dec, textFontSize);
   }
 }
 
@@ -342,7 +343,7 @@ function drawCommentary(ctx: CanvasRenderingContext2D, cm: import("../types/layo
 }
 
 /** 绘制装饰标记 */
-function drawDecoration(ctx: CanvasRenderingContext2D, dec: import("../types/layout").Decoration) {
+function drawDecoration(ctx: CanvasRenderingContext2D, dec: import("../types/layout").Decoration, fontSize: number) {
   ctx.save();
   ctx.strokeStyle = dec.color || "black";
   ctx.lineWidth = dec.strokeWidth || 2;
@@ -352,8 +353,16 @@ function drawDecoration(ctx: CanvasRenderingContext2D, dec: import("../types/lay
 
   switch (dec.type) {
     case "wavyLine":
-      // 正弦波浪线
-      drawWavyLine(ctx, x1, y1, x2, y2, dec.strokeWidth);
+      // 书名波浪线 — 在文字右侧画竖波浪线 (resolveDecorationRanges 已按列分段)
+      if (dec.charPositions && dec.charPositions.length > 0) {
+        const charX = dec.charPositions[0].x;
+        const waveX = charX + fontSize * 0.5; // 偏移量跟随字号缩放
+        const topY = dec.charPositions[0].y;
+        const bottomY = dec.charPositions[dec.charPositions.length - 1].y;
+        drawWavyLine(ctx, waveX, topY, waveX, bottomY, dec.strokeWidth, fontSize);
+      } else {
+        drawWavyLine(ctx, x1, y1, x2, y2, dec.strokeWidth, fontSize);
+      }
       break;
     case "circleNote":
       // 圈注 — 逐字绘制小圆
@@ -452,23 +461,35 @@ function drawWavyLine(
   x2: number,
   y2: number,
   amplitude: number,
+  fontSize: number = 60,
 ) {
-  const steps = Math.max(1, Math.ceil(Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)));
-  const waveAmp = amplitude || 2;
+  // 纯竖线：x1==x2 时，len = |y2-y1|；y1==y2（单字）时用最小高度
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  let len = Math.sqrt(dx * dx + dy * dy);
+  let sy1 = y1, sy2 = y2;
+  if (len < 1) {
+    // 起点终点重合（单字），扩展为以该点为中心的短竖线
+    const halfH = fontSize * 0.45;
+    sy1 = y1 - halfH;
+    sy2 = y1 + halfH;
+    len = sy2 - sy1;
+  }
+
+  const steps = Math.max(2, Math.ceil(len / 3)); // 至少 2 步，~3px/步
+  const waveAmp = (amplitude || 2) * 3;
   const waveLen = 10;
+  // 垂线方向：竖线 (dx≈0) 水平摆动，横线 (dy≈0) 垂直摆动
+  const isVertical = Math.abs(dx) < 1;
+  const nx = isVertical ? 1 : -dy / (len || 1);
+  const ny = isVertical ? 0 : dx / (len || 1);
 
   ctx.beginPath();
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
-    const baseX = x1 + (x2 - x1) * t;
-    const baseY = y1 + (y2 - y1) * t;
+    const baseX = x1;
+    const baseY = sy1 + len * t;
     const waveOffset = Math.sin((t * Math.PI * 2 * steps) / waveLen) * waveAmp;
-    // 垂直于线条方向的偏移
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    const nx = -dy / len;
-    const ny = dx / len;
     const px = baseX + nx * waveOffset;
     const py = baseY + ny * waveOffset;
     if (i === 0) {

@@ -68,8 +68,10 @@ export interface Decoration {
   bounds: { x1: number; y1: number; x2: number; y2: number };
   strokeWidth: number;
   color: string;
-  /** 各字符位置 — 用于逐字绘制圆圈、顿点、行注等装饰 */
-  charPositions?: { x: number; y: number }[];
+  /** 逐字坐标 (供逐字渲染的装饰类型使用) */
+  charPositions?: Position[];
+  /** 所属页面索引 (resolveDecorationRanges 自动填充) */
+  pageIndex?: number;
 }
 
 // ========================

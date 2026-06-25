@@ -97,20 +97,21 @@ describe("preprocessLine", () => {
     const config = makeConfig({});
     const result = await preprocessLine("正文【这是一条注释】继续正文", config);
     expect(result.text).toBe("正文继续正文");
-    expect(result.commentaries).toEqual(["这是一条注释"]);
+    expect(result.commentaries.map(c => c.content)).toEqual(["这是一条注释"]);
   });
 
   it("多个夹批", async () => {
     const config = makeConfig({});
     const result = await preprocessLine("【注释一】正文【注释二】", config);
     expect(result.text).toBe("正文");
-    expect(result.commentaries).toEqual(["注释一", "注释二"]);
+    expect(result.commentaries.map(c => c.content)).toEqual(["注释一", "注释二"]);
   });
 
   it("处理段落开头 T 标记", async () => {
     const config = makeConfig({});
     const result = await preprocessLine("T下一字符", config);
-    expect(result.text).toBe("一字符");
+    // T 标记保留在文本中，由 paginate() 后处理（advanceRow 控制标记）
+    expect(result.text).toBe("T下一字符");
   });
 
   it("无标点模式", async () => {

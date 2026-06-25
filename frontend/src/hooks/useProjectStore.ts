@@ -77,7 +77,7 @@ export const DEFAULT_BOOK_CONFIG: BookConfig = {
   commentNoPositionPunctuation: "",
   commentRotatedPunctuation: "",
   decorativeMarks: {
-    bookLine: { enabled: true, width: 2, color: "#000000" },
+    bookLine: { enabled: true, width: 5, color: "#000000" },
     rectFrame: { enabled: true, borderType: 0, borderColor: "#874434", fillColor: "#000000" },
     circleFrame: { enabled: true, borderType: 0, borderColor: "#874434", fillColor: "#ffffff" },
     textZoom: { enabled: true, zoomFactor: 1.1, color: "#cc0000" },

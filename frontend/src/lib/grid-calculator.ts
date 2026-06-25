@@ -55,7 +55,6 @@ export function computeGridMetrics(
   const multirowsNum = canvas.multiRows.enabled ? canvas.multiRows.num : 1;
   const effectiveRowNum = multirowsNum > 1 ? rowNum / multirowsNum : rowNum;
 
-  // 页容量 = col_num * row_num (标准) 或 col_num * row_num * multirows_num
   const pageCharsNum = colNum * rowNum;
 
   return {
@@ -116,23 +115,21 @@ export function generatePositionGrid(
   const isMultirows = canvas.multiRows.enabled;
   const effectiveRowNum = multirowsNum > 1 ? rowNum / multirowsNum : rowNum;
   const contentHeight = canvas.height - canvas.margins.top - canvas.margins.bottom;
-  const rowHeight = contentHeight / rowNum;
+  const rowHeight = contentHeight / rowNum;  // 使用实际传入的 rowNum（可能已被 computeGridMetrics 调整）
 
   const textPositions: Point[] = [];
   const commentPositions: Point[] = [];
 
   if (!isMultirows) {
-    // 标准模式: 右向左逐列 (古籍竖排传统)
     for (let col = 0; col < leafCol; col++) {
       for (let row = 0; row < rowNum; row++) {
         const pt = computeStandardPosition(canvas, col, row, colWidth, rowHeight, rowNum, rowDeltaY);
-        const commentPt = computeCommentPosition(canvas, col, row, colWidth, rowHeight, rowNum);
+        const commentPt = computeCommentPosition(canvas, col, row, colWidth, rowNum, rowHeight);
         textPositions.push(pt);
         commentPositions.push(commentPt);
       }
     }
   } else {
-    // 多栏模式: 按水平条带划分，每栏内右向左
     const rowsPerBand = rowNum / multirowsNum;
     for (let band = 0; band < multirowsNum; band++) {
       for (let col = 0; col < leafCol; col++) {
