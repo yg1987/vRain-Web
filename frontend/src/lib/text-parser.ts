@@ -18,7 +18,7 @@
  */
 
 import type { BookConfig } from "../types/layout";
-import { simplifyToTraditional } from "./simp-trad";
+import { simplifyToTraditional, batchSimplifyToTraditional } from "./simp-trad";
 
 /** 预处理后的文本段落 */
 export interface ProcessedParagraph {
@@ -36,17 +36,18 @@ export interface ProcessedTextFile {
 /**
  * 预处理单行文本
  *
- * 注意: 简繁转换是异步操作 (需加载 opencc WASM), 因此返回 Promise
+ * 注意: 简繁转换是异步操作 (需加载 opencc WASM), 因此返回 Promise。
+ * 如果调用方已提前批量转换（preConverted 非空），则跳过 API 调用。
  */
 export async function preprocessLine(
   line: string,
-  config: BookConfig
+  config: BookConfig,
+  preConverted?: string,
 ): Promise<ProcessedParagraph> {
-  let text = line;
+  // 如果上游已批量转换，直接用；否则走原有的逐行 API 路径
+  let text = preConverted ?? line;
 
-  // 0. 简繁转换 (替代 vrain_mr.pl 的字体回退机制)
-  // 在其它处理之前执行, 确保后续标点/数字规则对繁体文本也生效
-  if (config.simplifiedToTraditional) {
+  if (!preConverted && config.simplifiedToTraditional) {
     text = await simplifyToTraditional(text);
   }
 
@@ -63,12 +64,12 @@ export async function preprocessLine(
 
   // 4. 无标点模式
   if (config.noPunctuationMode) {
-    text = applyNoPunctuationMode(text, config.noPositionPunctuation);
+    text = applyNoPunctuationMode(text, config.noPunctuationList);
   }
 
   // 5. 统一句号模式
   if (config.onlyPeriodMode) {
-    text = applyOnlyPeriodMode(text, config.noPositionPunctuation);
+    text = applyOnlyPeriodMode(text, config.onlyPeriodList);
   }
 
   // 6. 空格转换
@@ -279,21 +280,35 @@ export function mergeTextFiles(
 
 /**
  * 将原始文本行转换为 ProcessedTextFile (异步版本)
+ *
+ * 优化: 如果启用简繁转换，先对所有行做一次批量 API 调用，
+ * 再逐行处理（跳过重复的转换），将 N 次 HTTP 请求降为 1 次。
  */
 export async function parseTextFile(
   filename: string,
   rawLines: string[],
   config: BookConfig
 ): Promise<ProcessedTextFile> {
+  // 如果启用简繁转换，提前批量转换所有行
+  let convertedLines: string[] | null = null;
+  if (config.simplifiedToTraditional) {
+    const nonEmpty = rawLines.map((l) => l.trim()).filter((l) => l !== "");
+    if (nonEmpty.length > 0) {
+      convertedLines = await batchSimplifyToTraditional(nonEmpty);
+    }
+  }
+
   const paragraphs: ProcessedParagraph[] = [];
   let currentLines: string[] = [];
+  let convIdx = 0; // 跟踪已消费的转换行
 
   for (const line of rawLines) {
     const trimmed = line.trim();
 
     if (trimmed === "") {
       if (currentLines.length > 0) {
-        paragraphs.push(...await processLines(currentLines, config));
+        paragraphs.push(...await processLines(currentLines, config, convertedLines, convIdx));
+        convIdx += currentLines.length;
         currentLines = [];
       }
     } else {
@@ -302,7 +317,8 @@ export async function parseTextFile(
   }
 
   if (currentLines.length > 0) {
-    paragraphs.push(...await processLines(currentLines, config));
+    paragraphs.push(...await processLines(currentLines, config, convertedLines, convIdx));
+    // convIdx not needed after last batch
   }
 
   return { filename, paragraphs };
@@ -310,12 +326,20 @@ export async function parseTextFile(
 
 /**
  * 将一组文本行转换为 ProcessedParagraph (异步版本)
+ * @param convertedLines 预转换后的行（与 lines 一一对应），为 null 表示未预转换
+ * @param convStart 当前批次在 convertedLines 中的起始索引
  */
-async function processLines(lines: string[], config: BookConfig): Promise<ProcessedParagraph[]> {
+async function processLines(
+  lines: string[],
+  config: BookConfig,
+  convertedLines: string[] | null,
+  convStart: number,
+): Promise<ProcessedParagraph[]> {
   const result: ProcessedParagraph[] = [];
 
-  for (const line of lines) {
-    result.push(await preprocessLine(line, config));
+  for (let i = 0; i < lines.length; i++) {
+    const preConv = convertedLines ? convertedLines[convStart + i] : undefined;
+    result.push(await preprocessLine(lines[i], config, preConv));
   }
 
   return result;

@@ -28,10 +28,19 @@ export default function TextEditor({ textLines, setTextLines, chapterTitles, set
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 同步当前文件的本地内容和标题
+  // 仅在 activeIdx 变化或内容实际变化时同步，避免重渲染时覆盖用户编辑
+  const lastSyncedRef = useRef<{ idx: number; contentSig: string; titleSig: string }>({
+    idx: -1, contentSig: "", titleSig: "",
+  });
+
   useEffect(() => {
-    const currentLines = textLines[activeIdx] || [];
-    setLocalContent(currentLines.join("\n"));
-    setLocalTitle(chapterTitles[activeIdx] || "");
+    const contentSig = (textLines[activeIdx] || []).join("\n");
+    const titleSig = chapterTitles[activeIdx] || "";
+    const last = lastSyncedRef.current;
+    if (last.idx === activeIdx && last.contentSig === contentSig && last.titleSig === titleSig) return;
+    lastSyncedRef.current = { idx: activeIdx, contentSig, titleSig };
+    setLocalContent(contentSig);
+    setLocalTitle(titleSig);
   }, [activeIdx, textLines, chapterTitles]);
 
   // 内容是否已修改

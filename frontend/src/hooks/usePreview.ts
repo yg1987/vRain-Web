@@ -10,7 +10,7 @@ import { useRef, useCallback, useEffect, useState } from "react";
 import type { Page, BookConfig, CanvasConfig, CommentaryEntry } from "../types/layout";
 import { computeGridMetrics, generatePositionGrid } from "../lib/grid-calculator";
 import { paginate } from "../lib/pagination-controller";
-import { preprocessLine, parseTextFile } from "../lib/text-parser";
+import { parseTextFile, type ProcessedTextFile } from "../lib/text-parser";
 import { renderPages } from "../lib/preview-renderer";
 import { extractDecorationRanges, resolveDecorationRanges, assignDecorationsToPages } from "../lib/markup-parser";
 import { num2zh } from "../lib/num2zh";
@@ -42,6 +42,9 @@ export function usePreview(options: UsePreviewOptions) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // 组件卸载时清理渲染防抖定时器
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
   // 预览状态
   const [state, setState] = useState<PreviewState>({
     pages: [],
@@ -55,9 +58,19 @@ export function usePreview(options: UsePreviewOptions) {
   });
 
   // 生成 IR (将配置 + 文本 → Page[])
+  // 缓存已解析的文件结果，仅当 textLines 某文件内容变化时才重新解析
+  const parseCacheRef = useRef<Map<number, { linesHash: string; parsed: ProcessedTextFile }>>(new Map());
+  const prevBookConfigRef = useRef<BookConfig | null>(null);
+
   const buildPages = useCallback(async (): Promise<Page[]> => {
     try {
       setState((s) => ({ ...s, isProcessing: true }));
+
+      // 配置变更时清空解析缓存（标点规则、简繁转换等影响解析结果）
+      if (prevBookConfigRef.current !== bookConfig) {
+        parseCacheRef.current.clear();
+        prevBookConfigRef.current = bookConfig;
+      }
 
       // 1. 计算网格 (根据字号自动调优行数，留足上下边界)
       const textFontSize = bookConfig.fonts[0]?.textPointSize ?? 60;
@@ -73,7 +86,7 @@ export function usePreview(options: UsePreviewOptions) {
       const grid = computeGridMetrics(canvasConfig, effectiveRowNum);
       const positions = generatePositionGrid(canvasConfig, grid, effectiveRowNum, bookConfig.rowDeltaY);
 
-      // 2. 解析文本文件 → 预处理字符
+      // 2. 解析文本文件 → 预处理字符 (并行 + 缓存)
       const allChars: string[] = [];
       const allCommentary: (CommentaryEntry | null)[] = [];
       const allDecorationRanges: DecorationRange[] = [];
@@ -82,10 +95,48 @@ export function usePreview(options: UsePreviewOptions) {
       /** 每个文件在 allChars 中的起始字符索引 */
       const fileCharStart: number[] = [];
 
+      // 缓存检查：为每个文件计算内容哈希，命中缓存则跳过解析
+      const cache = parseCacheRef.current;
+      const parsedFiles: ProcessedTextFile[] = [];
+      const filesToParse: { fi: number; lines: string[] }[] = [];
+
       for (let fi = 0; fi < textLines.length; fi++) {
         const lines = textLines[fi];
+        const linesHash = JSON.stringify(lines);
+        const cached = cache.get(fi);
+        if (cached && cached.linesHash === linesHash) {
+          parsedFiles[fi] = cached.parsed;
+        } else {
+          filesToParse.push({ fi, lines });
+        }
+      }
+
+      // 并行解析所有需要更新的文件
+      if (filesToParse.length > 0) {
+        await Promise.all(
+          filesToParse.map(({ fi, lines }) =>
+            parseTextFile(`${String(fi).padStart(2, "0")}.txt`, lines, bookConfig).then(
+              (parsed) => {
+                // 写入缓存
+                cache.set(fi, { linesHash: JSON.stringify(lines), parsed });
+                parsedFiles[fi] = parsed;
+                return parsed;
+              },
+            ),
+          ),
+        );
+      }
+
+      for (let fi = 0; fi < textLines.length; fi++) {
+        const parsed = parsedFiles[fi];
+        if (!parsed) {
+          // 空文件也记录起始位置，保证 fileCharStart 与 textLines 长度一致
+          fileCharStart.push(allChars.length);
+          titles.push(chapterTitles[fi] || "");
+          continue;
+        }
+
         fileCharStart.push(allChars.length); // 记录当前文件起始位置
-        const parsed = await parseTextFile(`${String(fi).padStart(2, "0")}.txt`, lines, bookConfig);
 
         // 收集标题 — 使用用户设置的章节标题 + 后缀
         const chapterTitle = chapterTitles[fi] || "";

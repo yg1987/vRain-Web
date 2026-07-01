@@ -682,13 +682,30 @@ export async function simplifyToTraditionalChars(
 }
 
 /**
- * 批量并行简转繁 — 处理多个文本段落
- * 使用 Promise.all 并行转换，提升性能
+ * 批量简转繁 — 将所有文本合并为一次 API 调用，然后拆分回各行
+ *
+ * 原先的 simplifyToTraditionalBatch 虽然用了 Promise.all 并行，
+ * 但每行仍然是一次独立的 HTTP 请求，N 行 = N 次往返。
+ * 本函数改用分隔符合并 → 一次请求 → 拆分 的策略，大幅减少网络开销。
+ */
+export async function batchSimplifyToTraditional(lines: string[]): Promise<string[]> {
+  if (lines.length === 0) return [];
+  if (lines.length === 1) return [await simplifyToTraditional(lines[0])];
+
+  // 用罕见分隔符拼接，避免与正文内容冲突
+  const SEP = "\n\u0000SIMPTRAD\u0000\n";
+  const joined = lines.join(SEP);
+  const converted = await simplifyToTraditional(joined);
+
+  // 拆分回各行（分隔符本身被保留在两端，需要 trim 掉尾部分隔符）
+  return converted.split(SEP);
+}
+
+/**
+ * @deprecated 使用 batchSimplifyToTraditional 替代，减少 API 调用次数
  */
 export async function simplifyToTraditionalBatch(
   texts: string[]
 ): Promise<string[]> {
-  const promises = texts.map((t) => simplifyToTraditional(t));
-  const results = await Promise.all(promises);
-  return results;
+  return batchSimplifyToTraditional(texts);
 }

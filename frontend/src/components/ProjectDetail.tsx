@@ -38,12 +38,20 @@ export default function ProjectDetail() {
   const [saveStatus, setSaveStatus] = useState<"" | "saving" | "saved" | "error">("");
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
 
-  const loadedRef = useRef(false);
+  const loadedProjectIdRef = useRef<string | null>(null);
+  const initialLoadRef = useRef(true);
   const saveStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 组件卸载时清理所有定时器
+  useEffect(() => () => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
+  }, []);
 
   // ========== 加载项目数据 ==========
   useEffect(() => {
-    if (!projectId || loadedRef.current) return;
+    if (!projectId || loadedProjectIdRef.current === projectId) return;
+    loadedProjectIdRef.current = projectId;
 
     const loadProject = async () => {
       try {
@@ -61,7 +69,7 @@ export default function ProjectDetail() {
         // 项目不存在时使用默认值
       } finally {
         setLoading(false);
-        loadedRef.current = true;
+        initialLoadRef.current = false;
       }
     };
 
@@ -92,7 +100,7 @@ export default function ProjectDetail() {
   }, [projectId, bookConfig, canvasConfig, textLines, chapterTitles]);
 
   useEffect(() => {
-    if (!loadedRef.current) return; // 首次加载不触发保存
+    if (initialLoadRef.current) return; // 首次加载不触发保存
     triggerSave();
   }, [bookConfig, canvasConfig, textLines, chapterTitles, triggerSave]);
 

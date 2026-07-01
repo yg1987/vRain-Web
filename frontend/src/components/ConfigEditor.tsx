@@ -78,7 +78,8 @@ export default function ConfigEditor({ bookConfig, canvasConfig, onChange }: Pro
               const preset = getCanvasPreset(e.target.value);
               if (preset) {
                 // 一次 onChange 同时更新 book 和 canvas
-                const newBook = { ...book, canvasId: id };
+                const presetId = e.target.value;
+                const newBook = { ...book, canvasId: presetId };
                 setBook(newBook);
                 setCanvas({ ...preset });
                 onChange(newBook, { ...preset });

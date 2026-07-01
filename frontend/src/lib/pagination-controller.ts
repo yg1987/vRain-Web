@@ -62,22 +62,28 @@ export function paginate(
   let charIndex = 0; // 当前字符索引
   let commentBuffer: CommentaryEntry[] = []; // 跨页批注缓冲
 
-  // 跨列夹批状态 — 当前列放不下时缓存剩余行，在下个循环迭代中从新列顶部继续
-  let pendingCM: {
-    rightCol: string[];
-    leftCol: string[];
-    cmFontSize: number;
-    cmColor: string;
-    cmBg: string | undefined;
-    cmBlockId: number;
-    rowOffset: number;      // 已渲染的行数
-    totalCharCount: number;  // 累计总字符数 (所有批次)
-  } | null = null;
+/**
+ * 跨列夹批待处理状态 — 当前列放不下时缓存剩余行，在后续迭代中从新列顶部继续渲染
+ */
+interface PendingCommentary {
+  rightCol: string[];
+  leftCol: string[];
+  cmFontSize: number;
+  cmColor: string;
+  cmBg: string | undefined;
+  cmBlockId: number;
+  rowOffset: number;      // 已渲染的行数
+  totalCharCount: number;  // 累计总字符数 (所有批次)
+}
+
+  // 跨列夹批状态
+  let pendingCM: PendingCommentary | null = null;
 
   while (charIndex < characters.length) {
     // ---- 优先消费未完成的跨列夹批 ----
     if (pendingCM) {
-      const { rightCol, leftCol, cmFontSize, cmColor, cmBg, cmBlockId, rowOffset } = pendingCM;
+      const { rightCol, leftCol, cmFontSize, cmColor, cmBg, cmBlockId } = pendingCM;
+      const rowOffset: number = pendingCM.rowOffset;
       const remainingRight = rightCol.slice(rowOffset);
       const remainingLeft = leftCol.slice(rowOffset);
       const cmSpacing = cmFontSize * 1.35;
@@ -150,7 +156,7 @@ export function paginate(
         commentaryFlatCount[charIndex] = pendingCM.totalCharCount;
         pendingCM = null;
       } else {
-        pendingCM = { ...pendingCM, rowOffset: newOffset };
+        pendingCM.rowOffset = newOffset;
       }
 
       // 批次渲染后检查是否溢出当前页

@@ -35,8 +35,14 @@ export async function registerFontRoutes(app: FastifyInstance) {
         });
       }
 
+      // 防目录穿越
+      const safeName = path.basename(file.filename);
+      if (safeName !== file.filename) {
+        return reply.status(400).send({ error: "文件名包含非法字符" });
+      }
+
       // 写入磁盘
-      const filePath = path.join(FONTS_DIR, file.filename);
+      const filePath = path.join(FONTS_DIR, safeName);
       const writeStream = fs.createWriteStream(filePath);
       await file.file.pipe(writeStream);
 

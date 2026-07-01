@@ -35,6 +35,7 @@ export interface ProjectData {
   bookConfig: Record<string, unknown>;
   canvasConfig: Record<string, unknown>;
   textLines: string[][];
+  chapterTitles: string[];
   createdAt: string;
   updatedAt: string;
 }

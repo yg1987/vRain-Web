@@ -5,6 +5,7 @@
  */
 
 import type { Page, BookConfig, CanvasConfig } from "../types/layout";
+import { num2zh } from "./num2zh";
 
 export interface RendererOptions {
   /** 要渲染的页面索引 (从 1 开始) */
@@ -656,7 +657,7 @@ function drawTitle(
 
 /** 绘制版心页码 (中文数字竖排) */
 function drawPageNumber(ctx: CanvasRenderingContext2D, pageNum: number, config: BookConfig, canvas: CanvasConfig) {
-  const numStr = numToZhChinese(pageNum);
+  const numStr = num2zh(pageNum);
   const chars = [...numStr];
   const yStart = config.pagerY;
   const fontSize = config.pagerFontSize;
@@ -675,23 +676,4 @@ function drawPageNumber(ctx: CanvasRenderingContext2D, pageNum: number, config: 
     const cy = yStart + i * fontSize * 1.2;
     ctx.fillText(chars[i], centerX, cy);
   }
-}
-
-/** 阿拉伯数字转中文数字字符串 */
-function numToZhChinese(n: number): string {
-  if (n === 0) return "〇";
-  if (n <= 9) return "一二三四五六七八九"[n - 1];
-  if (n === 10) return "十";
-  if (n < 20) return "十一十二十三十四十五十六十七十八十九"[n - 11 - 1] + "十"; // 简易
-  if (n < 100) {
-    const tens = Math.floor(n / 10);
-    const ones = n % 10;
-    const tensStr = "一二三四五六七八九"[tens - 1];
-    return ones === 0 ? tensStr + "十" : tensStr + "十" + "一二三四五六七八九"[ones - 1];
-  }
-  // 100+
-  const hundreds = Math.floor(n / 100);
-  const remainder = n % 100;
-  const hStr = "一二三四五六七八九"[hundreds - 1];
-  return remainder === 0 ? hStr + "百" : hStr + "百" + numToZhChinese(remainder);
 }

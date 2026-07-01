@@ -207,6 +207,10 @@ export interface BookConfig {
   noPositionPunctuation: string;
   noPositionPunctuationSize: number;
   noPositionPunctuationOffset: { x: number; y: number };
+  /** 无标点模式下要删除的标点列表 (管道分隔) — 独立于统一句号模式 */
+  noPunctuationList: string;
+  /** 统一句号模式下要转为句号的标点列表 (管道分隔) — 独立于无标点模式 */
+  onlyPeriodList: string;
   rotatedPunctuation: string;
   rotatedPunctuationSize: number;
   rotatedPunctuationOffset: { x: number; y: number };

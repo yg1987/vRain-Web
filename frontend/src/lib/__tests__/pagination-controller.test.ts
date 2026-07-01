@@ -39,6 +39,8 @@ function makeConfig(): BookConfig {
     noPositionPunctuation: "",
     noPositionPunctuationSize: 1.1,
     noPositionPunctuationOffset: { x: 0.45, y: 0.5 },
+    noPunctuationList: "",
+    onlyPeriodList: "",
     rotatedPunctuation: "",
     rotatedPunctuationSize: 0.8,
     rotatedPunctuationOffset: { x: 0.35, y: 0.65 },

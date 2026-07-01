@@ -9,7 +9,7 @@
  * 封面作者字体沿用正文。
  * 预览文字：共享一个输入框，三行各自显示该字在对应字体下的效果。
  */
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import type { FontEntry } from "../types/layout";
 import { api } from "../lib/api";
 
@@ -50,6 +50,9 @@ export default function FontSelector({
   const [uploadMessage, setUploadMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 组件卸载时清理上传状态定时器
+  useEffect(() => () => { if (uploadTimerRef.current) clearTimeout(uploadTimerRef.current); }, []);
 
   // ========== CSS @font-face 注入（比 JS FontFace API 更可靠） ==========
   const fontFaceStyle = useMemo(() => {

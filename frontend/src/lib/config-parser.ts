@@ -125,6 +125,8 @@ export function parseBookConfig(raw: ConfigMap): BookConfig {
       x: float("text_comma_nop_x", 0.45),
       y: float("text_comma_nop_y", 0.5),
     },
+    noPunctuationList: str("exp_nocomma", ""),
+    onlyPeriodList: str("exp_onlyperiod", ""),
     rotatedPunctuation: str("text_comma_90"),
     rotatedPunctuationSize: float("text_comma_90_size", 0.8),
     rotatedPunctuationOffset: {

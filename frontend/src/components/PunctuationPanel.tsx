@@ -3,7 +3,7 @@
  *
  * 控制：标点替换 / 删除 / 无标点模式 / 统一句号 / 不占位标点 / 旋转标点
  */
-import { useCallback } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import type { BookConfig } from "../types/layout";
 
 interface Props {
@@ -19,24 +19,35 @@ export default function PunctuationPanel({ bookConfig, onChange }: Props) {
     [bookConfig, onChange],
   );
 
-  // 标点替换规则: 从对象数组转为管道分隔字符串用于编辑
-  const replacementStr = bookConfig.punctuationReplacements
-    .map((r) => `${r.from}|${r.to}`)
-    .join("|");
+  // 标点替换规则: 用本地状态暂存原始输入，失焦时解析保存
+  // 避免每次按键都解析导致未成对的输入被清空
+  const rulesToStr = (rules: { from: string; to: string }[]) =>
+    rules.map((r) => `${r.from}|${r.to}`).join("|");
 
-  const handleReplacementChange = useCallback(
-    (input: string) => {
-      const parts = input.split("|");
-      const rules: { from: string; to: string }[] = [];
-      for (let i = 0; i < parts.length - 1; i += 2) {
-        if (parts[i] && parts[i + 1] !== undefined) {
-          rules.push({ from: parts[i], to: parts[i + 1] });
-        }
-      }
-      update({ punctuationReplacements: rules });
-    },
-    [update],
+  const [localReplacement, setLocalReplacement] = useState(() =>
+    rulesToStr(bookConfig.punctuationReplacements),
   );
+  const dirtyRef = useRef(false);
+
+  // 外部 props 变更时同步（仅在用户未编辑时）
+  useEffect(() => {
+    if (!dirtyRef.current) {
+      setLocalReplacement(rulesToStr(bookConfig.punctuationReplacements));
+    }
+  }, [bookConfig.punctuationReplacements]);
+
+  const handleReplacementBlur = useCallback(() => {
+    dirtyRef.current = false;
+    const input = localReplacement;
+    const parts = input.split("|");
+    const rules: { from: string; to: string }[] = [];
+    for (let i = 0; i < parts.length - 1; i += 2) {
+      if (parts[i] && parts[i + 1] !== undefined) {
+        rules.push({ from: parts[i], to: parts[i + 1] });
+      }
+    }
+    update({ punctuationReplacements: rules });
+  }, [localReplacement, update]);
 
   return (
     <div className="config-panel">
@@ -51,8 +62,9 @@ export default function PunctuationPanel({ bookConfig, onChange }: Props) {
         <input
           className="config-input font-mono text-xs"
           placeholder={'例: ,|，|.|。|:|：'}
-          value={replacementStr}
-          onChange={(e) => handleReplacementChange(e.target.value)}
+          value={localReplacement}
+          onChange={(e) => { dirtyRef.current = true; setLocalReplacement(e.target.value); }}
+          onBlur={handleReplacementBlur}
         />
         <p className="mt-1 text-[10px] text-ink/65">
           管道分隔的成对字符，半角→全角
@@ -88,8 +100,8 @@ export default function PunctuationPanel({ bookConfig, onChange }: Props) {
           <div className="mt-2">
             <input className="config-input font-mono text-xs"
               placeholder="例: ，|。|；|：（管道分隔要删除的标点）"
-              value={bookConfig.noPositionPunctuation}
-              onChange={(e) => update({ noPositionPunctuation: e.target.value })} />
+              value={bookConfig.noPunctuationList}
+              onChange={(e) => update({ noPunctuationList: e.target.value })} />
           </div>
         )}
       </div>
@@ -109,8 +121,8 @@ export default function PunctuationPanel({ bookConfig, onChange }: Props) {
           <div className="mt-2">
             <input className="config-input font-mono text-xs"
               placeholder="例: ，|。|；|：（管道分隔要转为句号的标点）"
-              value={bookConfig.noPositionPunctuation}
-              onChange={(e) => update({ noPositionPunctuation: e.target.value })} />
+              value={bookConfig.onlyPeriodList}
+              onChange={(e) => update({ onlyPeriodList: e.target.value })} />
           </div>
         )}
       </div>
